@@ -30,10 +30,35 @@ def _mais_24h():
     return (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _garantir_admin():
+    """Cria a conta de dono na 1ª subida (produção), a partir de ADMIN_EMAIL/ADMIN_SENHA.
+    Não faz nada se ADMIN_SENHA não estiver definida (ex.: ambiente local)."""
+    senha = os.environ.get("ADMIN_SENHA")
+    if not senha:
+        return
+    email = os.environ.get("ADMIN_EMAIL", "admin@teclog.com").strip().lower()
+    try:
+        conn = get_db()
+        try:
+            if conn.execute("SELECT id FROM usuarios WHERE is_admin = 1").fetchone():
+                return
+            conn.execute(
+                "INSERT INTO usuarios (nome, email, senha_hash, papel, is_admin) "
+                "VALUES (?, ?, ?, 'terceirizado', 1)",
+                ("Administrador TecLog+", email, generate_password_hash(senha)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+
+
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get("SECRET_KEY", "teclog-dev-secret-trocar-em-producao")
 
 init_db()
+_garantir_admin()
 
 
 # ----------------------------------------------------------------------------

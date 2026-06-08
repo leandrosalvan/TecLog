@@ -4,11 +4,15 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --workers 1 --threads 8
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: TZ
         value: America/Sao_Paulo
+      - key: ADMIN_EMAIL
+        value: admin@teclog.com
+      - key: ADMIN_SENHA
+        sync: false
       - key: DATABASE_URL
         sync: false
