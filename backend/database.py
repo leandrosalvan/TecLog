@@ -94,7 +94,10 @@ class _PgConn:
 # ---------------------------------------------------------------------------
 def get_db():
     if IS_PG:
-        raw = psycopg2.connect(DATABASE_URL, sslmode="require")
+        url = DATABASE_URL
+        if "sslmode=" not in url:
+            url += ("&" if "?" in url else "?") + "sslmode=require"
+        raw = psycopg2.connect(url)
         return _PgConn(raw)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
