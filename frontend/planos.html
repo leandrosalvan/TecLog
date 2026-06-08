@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Planos</title>
+  <style>
+    :root{
+      --primary:#0d9488; --primary-dark:#0f766e; --accent:#f59e0b;
+      --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --card:#fff;
+      --soft:#ccfbf1; --radius:16px; --shadow:0 8px 28px rgba(15,23,42,.10);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+    .hero{background:linear-gradient(160deg,var(--primary-dark),var(--primary) 60%,#14b8a6);color:#fff;text-align:center;padding:34px 20px 26px}
+    .hero .logo{font-size:34px;font-weight:800;letter-spacing:-.5px}
+    .hero .logo span{color:var(--accent)}
+    .hero .tag{opacity:.92;font-size:14px;margin-top:2px}
+    .hero h1{font-size:22px;margin-top:14px}
+    .wrap{max-width:760px;margin:0 auto;padding:20px}
+    .planos{display:grid;gap:16px}
+    @media(min-width:640px){.planos{grid-template-columns:repeat(2,1fr);align-items:start}}
+    .plano{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;position:relative}
+    .plano.destaque{border:2.5px solid var(--primary)}
+    .selo{position:absolute;top:16px;right:16px;background:var(--primary);color:#fff;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px}
+    .plano h2{font-size:22px;color:var(--primary-dark)}
+    .preco{font-size:42px;font-weight:800;margin:10px 0 0}
+    .preco small{font-size:16px;color:var(--muted);font-weight:600}
+    .inclui{color:var(--primary);font-weight:700;font-size:15px;margin-top:8px}
+    .extra{color:var(--muted);font-size:13px;margin-top:2px}
+    .features{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin-top:18px}
+    .features h3{font-size:16px;color:var(--primary-dark);margin-bottom:12px}
+    .features li{list-style:none;padding:7px 0 7px 30px;position:relative;font-size:14.5px}
+    .features li::before{content:"✓";position:absolute;left:0;top:7px;color:#fff;background:var(--primary);width:20px;height:20px;border-radius:50%;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+    .nota{background:var(--soft);border-radius:var(--radius);padding:18px 20px;margin-top:18px;text-align:center}
+    .nota strong{color:var(--primary-dark)}
+    .nota p{font-size:14px;color:#0f3d39;margin-top:4px}
+    .cta{display:inline-block;margin-top:14px;padding:13px 22px;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:800;text-decoration:none}
+    .voltar{display:block;text-align:center;margin:22px 0 10px;color:var(--primary-dark);font-weight:700;text-decoration:none;font-size:15px}
+    .rodape{text-align:center;color:var(--muted);font-size:13px;padding:8px 18px 26px}
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo">TecLog<span>+</span></div>
+    <div class="tag">Controle de O.S. para equipes técnicas</div>
+    <h1>Nossos planos</h1>
+  </div>
+
+  <div class="wrap">
+    <div class="planos">
+      <div class="plano">
+        <h2>Starter</h2>
+        <div class="preco">R$ 89,90<small> /mês</small></div>
+        <div class="inclui">Até 5 técnicos</div>
+        <div class="extra">+ R$ 12 por técnico adicional</div>
+      </div>
+
+      <div class="plano destaque">
+        <span class="selo">MAIS POPULAR</span>
+        <h2>Standard</h2>
+        <div class="preco">R$ 119,90<small> /mês</small></div>
+        <div class="inclui">Até 10 técnicos</div>
+        <div class="extra">+ R$ 10 por técnico adicional</div>
+      </div>
+
+      <div class="plano">
+        <h2>Advanced</h2>
+        <div class="preco">R$ 199,90<small> /mês</small></div>
+        <div class="inclui">Até 20 técnicos</div>
+        <div class="extra">+ R$ 9 por técnico adicional</div>
+      </div>
+
+      <div class="plano">
+        <h2>Professional</h2>
+        <div class="preco">R$ 269,90<small> /mês</small></div>
+        <div class="inclui">Até 30 técnicos</div>
+        <div class="extra">+ R$ 8 por técnico adicional</div>
+      </div>
+
+      <div class="plano">
+        <h2>Premium</h2>
+        <div class="preco">R$ 329,90<small> /mês</small></div>
+        <div class="inclui">Até 40 técnicos</div>
+        <div class="extra">+ R$ 7 por técnico adicional</div>
+      </div>
+
+      <div class="plano">
+        <span class="selo">GRANDES EQUIPES</span>
+        <h2>Enterprise</h2>
+        <div class="preco">R$ 389,90<small> /mês</small></div>
+        <div class="inclui">50 técnicos ou mais</div>
+        <div class="extra">+ R$ 6 por técnico adicional</div>
+      </div>
+    </div>
+
+    <div class="features">
+      <h3>Todos os planos incluem</h3>
+      <ul>
+        <li>Registro ilimitado de O.S. com valor automático</li>
+        <li>Valores de repasse por perfil de técnico</li>
+        <li>Fechamento por ciclo mensal configurável</li>
+        <li>Relatório de ganhos e margem (por técnico)</li>
+        <li>O.S. repetida com foto, notificação e visto</li>
+        <li>Acesso pelo celular (iOS e Android)</li>
+      </ul>
+    </div>
+
+    <div class="nota">
+      <strong>Tem indicação ou quer condição especial?</strong>
+      <p>Temos condições exclusivas para quem chega por indicação direta. Fale com a gente para contratar e receber seu acesso pronto.</p>
+      <a class="cta" href="https://wa.me/5548991400057?text=Ol%C3%A1!%20Tenho%20interesse%20no%20TecLog%2B%20e%20gostaria%20de%20contratar." target="_blank" rel="noopener">💬 Falar no WhatsApp</a>
+    </div>
+
+    <a class="voltar" href="/">← Já sou cliente · Entrar</a>
+  </div>
+
+  <div class="rodape">Teste sem compromisso · cancele quando quiser</div>
+</body>
+</html>

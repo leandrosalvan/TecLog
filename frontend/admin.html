@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Painel do dono</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">TecLog<span>+</span> · Dono</div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Painel do dono</h2>
+    <p class="page-sub">Crie e gerencie os acessos dos seus clientes. O cliente paga, você cria o login aqui e ele já entra.</p>
+
+    <!-- Novo cliente -->
+    <div class="section">
+      <h3>Criar acesso de cliente</h3>
+      <form id="form-cliente" class="form-inline">
+        <label for="c-nome">Nome / empresa do cliente</label>
+        <input type="text" id="c-nome" placeholder="Ex.: J. A instalações" required />
+
+        <label for="c-email">E-mail (login dele)</label>
+        <input type="email" id="c-email" placeholder="cliente@exemplo.com" required />
+
+        <label for="c-tel">Telefone / contato</label>
+        <input type="tel" id="c-tel" placeholder="(00) 00000-0000" />
+
+        <label for="c-senha">Senha inicial</label>
+        <input type="text" id="c-senha" placeholder="mínimo 4 caracteres" required />
+
+        <label for="c-plano">Plano</label>
+        <select id="c-plano">
+          <option value="Starter">Starter — 5 técnicos</option>
+          <option value="Standard">Standard — 10 técnicos</option>
+          <option value="Advanced">Advanced — 20 técnicos</option>
+          <option value="Professional">Professional — 30 técnicos</option>
+          <option value="Premium">Premium — 40 técnicos</option>
+          <option value="Enterprise">Enterprise — 50+ técnicos</option>
+          <option value="Teste">Teste — expira em 24h</option>
+          <option value="Personalizado">Personalizado</option>
+        </select>
+
+        <label for="c-limite">Limite de técnicos (logins)</label>
+        <input type="number" id="c-limite" min="0" value="5" />
+
+        <label for="c-venc">Vence em (opcional)</label>
+        <input type="date" id="c-venc" />
+
+        <div id="msg-cliente" class="msg"></div>
+        <button type="submit" class="btn btn-sm">+ Criar acesso</button>
+      </form>
+    </div>
+
+    <!-- Redefinir senha por e-mail -->
+    <div class="section">
+      <h3>Redefinir senha por e-mail</h3>
+      <p class="hint">Funciona para qualquer usuário — cliente (dono) ou técnico. Basta o e-mail.</p>
+      <form id="form-redef" class="form-inline">
+        <label for="r-email">E-mail do usuário</label>
+        <input type="email" id="r-email" placeholder="usuario@exemplo.com" required />
+        <label for="r-senha">Nova senha</label>
+        <input type="text" id="r-senha" placeholder="mínimo 4 caracteres" required />
+        <div id="msg-redef" class="msg"></div>
+        <button type="submit" class="btn btn-sm">Redefinir senha</button>
+      </form>
+    </div>
+
+    <!-- Lista de clientes -->
+    <div class="section">
+      <div class="classe-head">
+        <h3>Clientes</h3>
+        <span class="tag" id="resumo-clientes">0</span>
+      </div>
+      <ul class="list" id="lista-clientes"></ul>
+    </div>
+
+    <!-- Minha senha -->
+    <div class="section">
+      <h3>Minha senha</h3>
+      <p class="hint">Troque a senha do seu painel de dono quando quiser.</p>
+      <form id="form-senha" class="form-inline">
+        <label for="s-atual">Senha atual</label>
+        <input type="password" id="s-atual" autocomplete="current-password" required />
+        <label for="s-nova">Nova senha</label>
+        <input type="password" id="s-nova" autocomplete="new-password" placeholder="mínimo 4 caracteres" required />
+        <div id="msg-senha" class="msg"></div>
+        <button type="submit" class="btn btn-sm">Trocar senha</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

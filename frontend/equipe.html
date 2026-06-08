@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Equipe</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/dashboard" class="link-voltar">← Voltar</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Expandir equipe</h2>
+    <p class="page-sub">Cadastre seus técnicos e atribua o perfil de pagamento de cada um. (Os perfis você cria na aba <em>Valores</em>.)</p>
+
+    <!-- Técnicos -->
+    <div class="section">
+      <h3>Técnicos da equipe</h3>
+      <p class="hint">Técnicos que vão registrar O.S. no sistema. Cada um recebe um login próprio.</p>
+      <ul class="list" id="lista-tecnicos"></ul>
+      <div class="form-titulo">Adicionar novo técnico</div>
+      <form id="form-tecnico" class="form-inline">
+        <label for="tec-nome">Nome do técnico</label>
+        <input type="text" id="tec-nome" placeholder="Nome completo" required />
+
+        <label for="tec-email">E-mail (login dele)</label>
+        <input type="email" id="tec-email" placeholder="tecnico@exemplo.com" required />
+
+        <label for="tec-tel">Telefone / contato</label>
+        <input type="tel" id="tec-tel" placeholder="(00) 00000-0000" />
+
+        <label for="tec-senha">Senha inicial</label>
+        <input type="text" id="tec-senha" placeholder="mínimo 4 caracteres" required />
+
+        <label for="tec-perfil">Perfil de repasse</label>
+        <select id="tec-perfil"></select>
+
+        <div id="msg-tecnico" class="msg"></div>
+        <button type="submit" class="btn btn-sm">+ Adicionar técnico</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/aviso.js"></script>
+  <script src="/js/equipe.js"></script>
+</body>
+</html>

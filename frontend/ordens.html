@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Ordens de Serviço</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/dashboard" class="link-voltar">← Voltar</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Ordens de Serviço</h2>
+    <p class="page-sub" id="subtitulo">Filtre por ciclo ou período e veja o relatório de ganhos.</p>
+
+    <!-- Configuração do ciclo (só dono) -->
+    <div class="section" id="bloco-config" style="display:none">
+      <h3>Ciclo mensal</h3>
+      <p class="hint" id="hint-ciclo">Defina em que dia do mês começa o ciclo de fechamento (1 a 28).</p>
+      <div class="filtro-row">
+        <div class="campo">
+          <label for="dia-ciclo">Começa todo dia</label>
+          <input type="number" id="dia-ciclo" min="1" max="28" placeholder="ex.: 5" />
+        </div>
+        <button class="btn btn-sm" id="btn-ciclo" style="flex:0 0 auto">Salvar</button>
+      </div>
+      <div id="msg-ciclo" class="msg"></div>
+    </div>
+
+    <!-- Filtro -->
+    <div class="section">
+      <div class="modos" id="modos">
+        <button class="btn-act modo" data-modo="0">Ciclo atual</button>
+        <button class="btn-act modo" data-modo="1">Ciclo anterior</button>
+        <button class="btn-act modo" data-modo="2">2 ciclos atrás</button>
+        <button class="btn-act modo" data-modo="custom">Personalizado</button>
+      </div>
+
+      <div id="bloco-personalizado" style="display:none">
+        <div class="filtro-row" style="margin-top:12px">
+          <div class="campo"><label for="f-de">De</label><input type="date" id="f-de" /></div>
+          <div class="campo"><label for="f-ate">Até</label><input type="date" id="f-ate" /></div>
+          <button class="btn btn-sm" id="btn-filtrar" style="flex:0 0 auto">Filtrar</button>
+        </div>
+        <div class="atalhos">
+          <button class="btn-act" data-atalho="hoje">Hoje</button>
+          <button class="btn-act" data-atalho="7">Últimos 7 dias</button>
+          <button class="btn-act" data-atalho="30">Últimos 30 dias</button>
+        </div>
+      </div>
+
+      <p class="periodo-aplicado" id="periodo-aplicado"></p>
+    </div>
+
+    <!-- Resumo / relatório de ganhos -->
+    <div class="stats" id="resumo"></div>
+
+    <!-- Por técnico (só dono) -->
+    <div class="section" id="bloco-tecnicos" style="display:none">
+      <h3>Por técnico</h3>
+      <ul class="list" id="lista-tecnicos"></ul>
+    </div>
+
+    <!-- Lista de O.S. -->
+    <div class="section">
+      <h3 id="titulo-lista">O.S. no período</h3>
+      <ul class="list" id="lista-os"></ul>
+    </div>
+  </div>
+
+  <!-- Modal de sinalização -->
+  <div class="modal-overlay" id="modal" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>⚠️ Sinalizar O.S.</h3>
+        <button class="modal-x" id="modal-fechar">✕</button>
+      </div>
+      <p class="modal-sub" id="modal-cliente"></p>
+
+      <label for="sinal-desc">Descrição</label>
+      <textarea id="sinal-desc" rows="4" placeholder="Ex.: cliente reclamou, local de instalação inadequado, gestão do provedor cobrando retorno…"></textarea>
+
+      <label for="sinal-img">Anexar imagem (opcional)</label>
+      <input type="file" id="sinal-img" accept="image/*" />
+      <div id="sinal-preview" class="sinal-preview"></div>
+      <p id="sinal-status" class="modal-status"></p>
+
+      <div id="msg-sinal" class="msg"></div>
+
+      <div class="modal-acts">
+        <button class="btn" id="sinal-salvar">Salvar sinalização</button>
+        <button class="btn-act excluir" id="sinal-remover" style="display:none">Remover sinalização</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/aviso.js"></script>
+  <script src="/js/ordens.js"></script>
+</body>
+</html>

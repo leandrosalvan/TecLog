@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Meus dados</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/dashboard" class="link-voltar">← Voltar</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Meus dados</h2>
+    <p class="page-sub">Mantenha seu contato atualizado.</p>
+
+    <div class="section">
+      <form id="form-perfil" class="form-inline">
+        <label for="p-nome">Nome</label>
+        <input type="text" id="p-nome" disabled />
+
+        <label for="p-email">E-mail (login)</label>
+        <input type="email" id="p-email" disabled />
+
+        <label for="p-tel">Telefone / contato</label>
+        <input type="tel" id="p-tel" placeholder="(00) 00000-0000" />
+
+        <div id="msg-perfil" class="msg"></div>
+        <button type="submit" class="btn btn-sm">Salvar</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/aviso.js"></script>
+  <script src="/js/perfil.js"></script>
+</body>
+</html>

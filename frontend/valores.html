@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Valores</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/dashboard" class="link-voltar">← Voltar</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Valores</h2>
+    <p class="page-sub">Defina quanto cada classe de serviço vale para cada perfil. O valor do seu perfil é o valor cheio; os demais são o repasse de cada equipe.</p>
+
+    <!-- Perfis de pagamento -->
+    <div class="section">
+      <h3>Perfis de pagamento</h3>
+      <p class="hint">Crie um perfil para cada nível de pagamento e dê um título à sua escolha. O seu perfil é o valor cheio; os demais são o repasse. Use as setas ↑ ↓ para ordenar.</p>
+      <ul class="list" id="lista-perfis"></ul>
+      <div class="form-titulo">Adicionar novo perfil</div>
+      <form id="form-perfil" class="form-inline">
+        <label for="perfil-desc">Título do perfil</label>
+        <input type="text" id="perfil-desc" placeholder="Ex.: Equipe A · repasse 70%" required />
+        <div id="msg-perfil" class="msg"></div>
+        <button type="submit" class="btn btn-sm">+ Criar perfil</button>
+      </form>
+    </div>
+
+    <!-- Adicionar classe -->
+    <div class="section">
+      <h3>Nova classe de serviço</h3>
+      <p class="hint">Ex.: INSTALAÇÃO, SUPORTE, DEVICES, MUDANÇA DE ENDEREÇO…</p>
+      <form id="form-classe" class="form-inline">
+        <label for="classe-nome">Nome da classe</label>
+        <input type="text" id="classe-nome" placeholder="Nome do serviço" required />
+        <div id="msg-classe" class="msg"></div>
+        <button type="submit" class="btn btn-sm">+ Criar classe</button>
+      </form>
+    </div>
+
+    <!-- Matriz de valores (um bloco por classe) -->
+    <div id="matriz"></div>
+
+    <div id="msg-valores" class="msg"></div>
+    <button id="btn-salvar" class="btn" style="display:none">Salvar valores</button>
+  </div>
+
+  <script src="/js/aviso.js"></script>
+  <script src="/js/valores.js"></script>
+</body>
+</html>
