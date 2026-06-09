@@ -1,11 +1,48 @@
 // TecLog+ — Registrar O.S. (criar + listar as do dia, editar/excluir)
 
 let CLASSES = [];
+let PAPEL = "terceirizado";
 
 function msg(texto, tipo) {
   const el = document.getElementById("msg-os");
   el.textContent = texto;
   el.className = "msg show " + tipo;
+}
+
+function msgHTML(html, tipo) {
+  const el = document.getElementById("msg-os");
+  el.innerHTML = html;
+  el.className = "msg show " + tipo;
+}
+
+function limparMsg() {
+  const el = document.getElementById("msg-os");
+  el.textContent = "";
+  el.className = "msg";
+}
+
+function valorDaClasse(id) {
+  const c = CLASSES.find((x) => x.id === Number(id));
+  return c ? Number(c.valor) || 0 : 0;
+}
+
+function avisoZero() {
+  return PAPEL === "terceirizado"
+    ? '⚠️ Esta classe está com valor R$ 0,00 para o seu perfil. Defina os valores na aba <a href="/valores">💰 Valores</a> antes de registrar.'
+    : "⚠️ Esta classe ainda está sem valor definido para o seu perfil. Peça ao líder da equipe para configurar os valores.";
+}
+
+// Avisa e bloqueia o botão quando a classe selecionada está com valor zerado
+function avaliarClasse() {
+  const sel = document.getElementById("os-classe");
+  const btn = document.querySelector("#form-os button[type=submit]");
+  if (sel.value && valorDaClasse(sel.value) <= 0) {
+    msgHTML(avisoZero(), "erro");
+    if (btn) btn.disabled = true;
+  } else {
+    limparMsg();
+    if (btn) btn.disabled = false;
+  }
 }
 
 function brl(v) {
@@ -34,13 +71,17 @@ async function carregarFormData() {
   }
   const data = await r.json();
   CLASSES = data.classes;
+  PAPEL = data.papel || "terceirizado";
   const sel = document.getElementById("os-classe");
   if (CLASSES.length === 0) {
     sel.innerHTML = '<option value="">— crie uma classe na aba Valores —</option>';
   } else {
     sel.innerHTML =
       '<option value="">Selecione…</option>' +
-      CLASSES.map((c) => '<option value="' + c.id + '">' + c.nome + "</option>").join("");
+      CLASSES.map((c) =>
+        '<option value="' + c.id + '">' + c.nome +
+        ((Number(c.valor) || 0) <= 0 ? " — sem valor" : "") + "</option>"
+      ).join("");
   }
   document.getElementById("os-data").value = hojeStr();
 }
@@ -156,9 +197,16 @@ async function excluirOS(o) {
   }
 }
 
+document.getElementById("os-classe").addEventListener("change", avaliarClasse);
+
 // Criar O.S.
 document.getElementById("form-os").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const selVal = document.getElementById("os-classe").value;
+  if (selVal && valorDaClasse(selVal) <= 0) {
+    msgHTML(avisoZero(), "erro");
+    return;
+  }
   const r = await fetch("/api/os", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

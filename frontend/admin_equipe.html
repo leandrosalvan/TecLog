@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Equipe do cliente</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/admin" class="link-voltar">← Backoffice</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title" id="titulo">Equipe</h2>
+    <p class="page-sub" id="subtitulo"></p>
+
+    <div class="section">
+      <div class="classe-head">
+        <h3>Técnicos</h3>
+        <span class="tag" id="resumo-tec">0</span>
+      </div>
+      <input type="text" id="busca-tec" class="busca-input" placeholder="🔎 Buscar por nome, e-mail ou telefone…" />
+      <ul class="list" id="lista-tec"></ul>
+    </div>
+  </div>
+
+  <script src="/js/admin_equipe.js"></script>
+</body>
+</html>

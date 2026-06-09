@@ -6,6 +6,11 @@ function msg(id, texto, tipo) {
   el.className = "msg show " + tipo;
 }
 
+function setFormHabilitado(form, on) {
+  form.querySelectorAll("input, select, button").forEach((el) => { el.disabled = !on; });
+  form.style.opacity = on ? "1" : ".55";
+}
+
 async function getJSON(url) {
   const r = await fetch(url);
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
@@ -26,22 +31,34 @@ async function carregar() {
     return;
   }
 
-  // ---- Select de perfis no form de técnico (exclui o seu perfil principal) ----
+  // ---- Select de perfis: só perfis PRONTOS (com ≥1 valor > 0), exclui o principal ----
   const sel = document.getElementById("tec-perfil");
+  const trava = document.getElementById("trava-perfil");
+  const form = document.getElementById("form-tecnico");
   sel.innerHTML = "";
   const atribuiveis = data.perfis.filter((p) => !p.principal);
-  if (atribuiveis.length === 0) {
+  const prontos = atribuiveis.filter((p) => p.pronto);
+
+  if (prontos.length === 0) {
+    trava.style.display = "block";
+    trava.innerHTML =
+      atribuiveis.length === 0
+        ? '⚠️ Antes de adicionar técnicos, crie um <strong>perfil</strong> e defina os <strong>valores</strong> dele na aba <a href="/valores">💰 Valores</a>.'
+        : '⚠️ Você tem perfis, mas nenhum com valores definidos. Defina ao menos um valor de um perfil na aba <a href="/valores">💰 Valores</a> para liberar o cadastro de técnicos.';
     const o = document.createElement("option");
     o.value = "";
-    o.textContent = "— crie um perfil acima primeiro —";
+    o.textContent = "— nenhum perfil pronto —";
     sel.appendChild(o);
+    setFormHabilitado(form, false);
   } else {
-    atribuiveis.forEach((p) => {
+    trava.style.display = "none";
+    prontos.forEach((p) => {
       const o = document.createElement("option");
       o.value = p.id;
       o.textContent = p.descricao || "(sem título)";
       sel.appendChild(o);
     });
+    setFormHabilitado(form, true);
   }
 
   // ---- Técnicos ----
@@ -67,7 +84,7 @@ async function carregar() {
       const bEd = document.createElement("button");
       bEd.className = "btn-act editar";
       bEd.textContent = "Editar";
-      bEd.addEventListener("click", () => modoEdicaoTecnico(li, t, atribuiveis));
+      bEd.addEventListener("click", () => modoEdicaoTecnico(li, t, prontos));
       acts.appendChild(bEd);
 
       const bEx = document.createElement("button");
@@ -108,6 +125,20 @@ function modoEdicaoTecnico(li, t, perfis) {
 
   const sel = document.createElement("select");
   sel.className = "edit-input";
+  // Mantém o perfil atual do técnico como opção (mesmo sem valores definidos)
+  const atualNaoPronto = t.perfil_id && !perfis.some((p) => p.id === t.perfil_id);
+  if (!t.perfil_id) {
+    const o = document.createElement("option");
+    o.value = ""; o.textContent = "— sem perfil (manter) —"; o.selected = true;
+    sel.appendChild(o);
+  }
+  if (atualNaoPronto) {
+    const o = document.createElement("option");
+    o.value = t.perfil_id;
+    o.textContent = (t.perfil_titulo || "(sem título)") + " — atual (sem valores)";
+    o.selected = true;
+    sel.appendChild(o);
+  }
   perfis.forEach((p) => {
     const o = document.createElement("option");
     o.value = p.id;

@@ -2,15 +2,15 @@
 const MENU = {
   terceirizado: [
     { ic: "📝", ti: "Registrar O.S.", de: "Lançar serviço executado", href: "/registrar", soon: false },
-    { ic: "📋", ti: "Ordens de Serviço", de: "O.S. da equipe", href: "/ordens", soon: false },
+    { ic: "📊", ti: "Relatório de Ganhos", de: "Ganhos e O.S. da equipe", href: "/ordens", soon: false },
     { ic: "👥", ti: "Expandir equipe", de: "Gerenciar técnicos", href: "/equipe", soon: false },
-    { ic: "💰", ti: "Valores", de: "Classe × perfil técnico", href: "/valores", soon: false },
+    { ic: "⚙️", ti: "Valores", de: "Classe × perfil técnico", href: "/valores", soon: false },
     { ic: "🔔", ti: "Notificações", de: "Avisos da equipe", href: "/notificacoes", soon: false },
     { ic: "👤", ti: "Meus dados", de: "Telefone e contato", href: "/perfil", soon: false },
   ],
   quarteirizado: [
     { ic: "📝", ti: "Registrar O.S.", de: "Lançar serviço executado", href: "/registrar", soon: false },
-    { ic: "📋", ti: "Minhas O.S.", de: "Histórico e valores", href: "/ordens", soon: false },
+    { ic: "📊", ti: "Relatório de Ganhos", de: "Minhas O.S. e ganhos", href: "/ordens", soon: false },
     { ic: "🔔", ti: "Notificações", de: "Avisos recebidos", href: "/notificacoes", soon: false },
     { ic: "👤", ti: "Meus dados", de: "Telefone e contato", href: "/perfil", soon: false },
   ],

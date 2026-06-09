@@ -1,6 +1,5 @@
 // TecLog+ — Ordens de Serviço (ciclo configurável + período + relatório)
 
-let DIA_CICLO = null;
 let PAPEL = null;
 
 function brl(v) {
@@ -29,22 +28,14 @@ function statCard(lbl, val, destaque) {
     '<div class="val">' + val + "</div></div>"
   );
 }
-function msg(texto, tipo) {
-  const el = document.getElementById("msg-ciclo");
-  el.textContent = texto;
-  el.className = "msg show " + tipo;
-}
-
-function setModoAtivo(modo) {
-  document.querySelectorAll(".modo").forEach((b) => {
-    b.classList.toggle("ativo", b.dataset.modo === String(modo));
-  });
-  document.getElementById("bloco-personalizado").style.display =
-    modo === "custom" ? "block" : "none";
-}
+let ULTIMO = null;
+let SELECIONADOS = null; // Set de nomes de técnicos visíveis (null = todos)
+const LIMITE_OS = 5;     // qtd mostrada no resumo (o resto abre no modal)
 
 function render(data) {
+  ULTIMO = data;
   PAPEL = data.papel;
+  SELECIONADOS = null; // novo período sempre começa mostrando todos
   document.getElementById("periodo-aplicado").textContent =
     "Período: " + dataBRfull(data.de) + " a " + dataBRfull(data.ate);
 
@@ -53,28 +44,13 @@ function render(data) {
 
   if (data.papel === "terceirizado") {
     document.getElementById("subtitulo").textContent =
-      "Visão de toda a equipe. Filtre por ciclo ou período.";
+      "Visão de toda a equipe. Filtre por período.";
     resumo.innerHTML =
       statCard("Faturamento (bruto)", brl(data.resumo.bruto)) +
       statCard("Repasse à equipe", brl(data.resumo.repasse_equipe)) +
       statCard("Sua margem", brl(data.resumo.margem), true) +
       statCard("Total de O.S.", data.resumo.qtd);
-
-    const ul = document.getElementById("lista-tecnicos");
-    ul.innerHTML = "";
-    if (data.resumo.por_tecnico.length === 0) {
-      ul.innerHTML = '<li class="empty">Nenhuma O.S. no período.</li>';
-    } else {
-      data.resumo.por_tecnico.forEach((t) => {
-        const li = document.createElement("li");
-        li.className = "list-item";
-        li.innerHTML =
-          '<div class="li-info"><div class="li-main">' + t.tecnico + "</div>" +
-          '<div class="li-sub">' + t.qtd + " O.S.</div></div>" +
-          '<span class="tag">' + brl(t.repasse) + "</span>";
-        ul.appendChild(li);
-      });
-    }
+    renderResumoTecnicos(data);
     blocoTec.style.display = "block";
   } else {
     document.getElementById("subtitulo").textContent = "Suas O.S. e ganhos.";
@@ -84,71 +60,153 @@ function render(data) {
     blocoTec.style.display = "none";
   }
 
-  const ulOs = document.getElementById("lista-os");
-  ulOs.innerHTML = "";
-  if (data.os.length === 0) {
-    ulOs.innerHTML = '<li class="empty">Nenhuma O.S. no período.</li>';
+  renderListaOS(data);
+}
+
+// "Por técnico": cada técnico com checkbox (marca = mostra, desmarca = esconde)
+function renderResumoTecnicos(data) {
+  const ul = document.getElementById("lista-tecnicos");
+  const todos = document.getElementById("tec-todos");
+  ul.innerHTML = "";
+
+  if (data.resumo.por_tecnico.length === 0) {
+    ul.innerHTML = '<li class="empty">Nenhuma O.S. no período.</li>';
+    todos.parentElement.style.display = "none";
     return;
   }
-  data.os.forEach((o) => {
+  todos.parentElement.style.display = "";
+  todos.checked = true;
+
+  data.resumo.por_tecnico.forEach((t) => {
     const li = document.createElement("li");
     li.className = "list-item";
 
-    const info = document.createElement("div");
-    info.className = "li-info";
-    info.innerHTML =
-      '<div class="li-main">' + o.cliente + "</div>" +
-      '<div class="li-sub">' + o.classe + "</div>";
+    const lab = document.createElement("label");
+    lab.className = "li-info chk-tec";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.dataset.tec = t.tecnico;
+    cb.addEventListener("change", onTecChange);
+    const span = document.createElement("span");
+    span.innerHTML =
+      '<div class="li-main">' + t.tecnico + "</div>" +
+      '<div class="li-sub">' + t.qtd + " O.S.</div>";
+    lab.appendChild(cb);
+    lab.appendChild(span);
 
-    const right = document.createElement("div");
-    right.className = "li-actions";
-
-    const tagTxt =
-      data.papel === "terceirizado"
-        ? o.tecnico + " · " + dataBR(o.data_execucao) + " · " + brl(o.valor_repasse)
-        : dataBR(o.data_execucao) + " · " + brl(o.valor_repasse);
     const tag = document.createElement("span");
     tag.className = "tag";
-    tag.textContent = tagTxt;
-    right.appendChild(tag);
+    tag.textContent = brl(t.repasse);
 
-    // Só o dono pode sinalizar O.S.
-    if (data.papel === "terceirizado") {
-      const alerta = document.createElement("button");
-      alerta.className = "btn-alerta" + (o.sinalizada ? " ativo" : "");
-      alerta.textContent = "⚠";
-      alerta.title = o.sinalizada ? "Sinalizada — ver/editar" : "Sinalizar";
-      alerta.addEventListener("click", () => abrirSinal(o));
-      right.appendChild(alerta);
-    }
-
-    li.appendChild(info);
-    li.appendChild(right);
-    ulOs.appendChild(li);
+    li.appendChild(lab);
+    li.appendChild(tag);
+    ul.appendChild(li);
   });
 }
 
-function recarregar() {
-  const ativo = document.querySelector(".modo.ativo");
-  const modo = ativo ? ativo.dataset.modo : "custom";
-  if (modo === "custom") carregarCustom();
-  else carregarCiclo(Number(modo));
+function checkboxesTec() {
+  return Array.from(document.querySelectorAll("#lista-tecnicos input[type=checkbox]"));
 }
 
-async function carregarCiclo(offset) {
-  if (!DIA_CICLO) {
-    document.getElementById("periodo-aplicado").textContent =
-      PAPEL === "terceirizado"
-        ? "Defina o dia de início do ciclo acima para usar este filtro."
-        : "O gestor ainda não definiu o dia do ciclo.";
+function onTecChange() {
+  const cbs = checkboxesTec();
+  SELECIONADOS = new Set(cbs.filter((c) => c.checked).map((c) => c.dataset.tec));
+  cbs.forEach((c) => { c.closest(".list-item").style.opacity = c.checked ? "1" : ".5"; });
+  document.getElementById("tec-todos").checked = cbs.length > 0 && cbs.every((c) => c.checked);
+  renderListaOS(ULTIMO);
+}
+
+// Monta um item <li> de O.S.
+function osLi(o, papel) {
+  const li = document.createElement("li");
+  li.className = "list-item";
+
+  const info = document.createElement("div");
+  info.className = "li-info";
+  info.innerHTML =
+    '<div class="li-main">' + o.cliente + "</div>" +
+    '<div class="li-sub">' + o.classe + "</div>";
+
+  const right = document.createElement("div");
+  right.className = "li-actions";
+
+  const tagTxt =
+    papel === "terceirizado"
+      ? o.tecnico + " · " + dataBR(o.data_execucao) + " · " + brl(o.valor_repasse)
+      : dataBR(o.data_execucao) + " · " + brl(o.valor_repasse);
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = tagTxt;
+  right.appendChild(tag);
+
+  // Só o dono pode sinalizar O.S.
+  if (papel === "terceirizado") {
+    const alerta = document.createElement("button");
+    alerta.className = "btn-alerta" + (o.sinalizada ? " ativo" : "");
+    alerta.textContent = "⚠";
+    alerta.title = o.sinalizada ? "Sinalizada — ver/editar" : "Sinalizar";
+    alerta.addEventListener("click", () => abrirSinal(o));
+    right.appendChild(alerta);
+  }
+
+  li.appendChild(info);
+  li.appendChild(right);
+  return li;
+}
+
+function listaFiltrada(data) {
+  let lista = data.os;
+  if (data.papel === "terceirizado" && SELECIONADOS) {
+    lista = lista.filter((o) => SELECIONADOS.has(o.tecnico));
+  }
+  return lista;
+}
+
+// Lista de O.S. — resumo (LIMITE_OS); "Ver mais" abre a lista completa em modal
+function renderListaOS(data) {
+  const ulOs = document.getElementById("lista-os");
+  const exp = document.getElementById("os-expandir");
+  ulOs.innerHTML = "";
+  exp.innerHTML = "";
+
+  const lista = listaFiltrada(data);
+  document.getElementById("titulo-lista").textContent =
+    "O.S. no período (" + lista.length + ")";
+
+  if (lista.length === 0) {
+    ulOs.innerHTML = '<li class="empty">Nenhuma O.S. para os técnicos marcados.</li>';
     return;
   }
-  const r = await fetch("/api/relatorio?ciclo=" + offset);
-  if (!r.ok) {
-    if (r.status === 401) window.location.href = "/";
-    return;
+
+  lista.slice(0, LIMITE_OS).forEach((o) => ulOs.appendChild(osLi(o, data.papel)));
+
+  if (lista.length > LIMITE_OS) {
+    const btn = document.createElement("button");
+    btn.className = "btn-expandir";
+    btn.textContent = "▼ Ver mais (" + lista.length + ")";
+    btn.addEventListener("click", () => abrirModalOS(data));
+    exp.appendChild(btn);
   }
-  render(await r.json());
+}
+
+// Modal com a lista COMPLETA de O.S. (conforme o filtro aplicado)
+function abrirModalOS(data) {
+  const lista = listaFiltrada(data);
+  const ul = document.getElementById("modal-os-lista");
+  ul.innerHTML = "";
+  lista.forEach((o) => ul.appendChild(osLi(o, data.papel)));
+  document.getElementById("modal-os-titulo").textContent =
+    "O.S. no período (" + lista.length + ")";
+  document.getElementById("modal-os").style.display = "flex";
+}
+
+function fecharModalOS() {
+  document.getElementById("modal-os").style.display = "none";
+}
+
+function recarregar() {
+  carregarCustom();
 }
 
 async function carregarCustom() {
@@ -162,24 +220,7 @@ async function carregarCustom() {
   render(await r.json());
 }
 
-// Botões de modo
-document.querySelectorAll(".modo").forEach((b) => {
-  b.addEventListener("click", () => {
-    const modo = b.dataset.modo;
-    setModoAtivo(modo);
-    if (modo === "custom") {
-      if (!document.getElementById("f-de").value) {
-        document.getElementById("f-de").value = hojeStr();
-        document.getElementById("f-ate").value = hojeStr();
-      }
-      carregarCustom();
-    } else {
-      carregarCiclo(Number(modo));
-    }
-  });
-});
-
-// Atalhos do modo personalizado
+// Atalhos de período
 document.querySelectorAll("[data-atalho]").forEach((b) => {
   b.addEventListener("click", () => {
     const tipo = b.dataset.atalho;
@@ -198,23 +239,17 @@ document.querySelectorAll("[data-atalho]").forEach((b) => {
 
 document.getElementById("btn-filtrar").addEventListener("click", carregarCustom);
 
-// Salvar dia do ciclo (dono)
-document.getElementById("btn-ciclo").addEventListener("click", async () => {
-  const dia = document.getElementById("dia-ciclo").value;
-  const r = await fetch("/api/ciclo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dia_ciclo: Number(dia) }),
-  });
-  const d = await r.json().catch(() => ({}));
-  if (r.ok) {
-    DIA_CICLO = d.dia_ciclo;
-    msg("Ciclo salvo! Começa todo dia " + d.dia_ciclo + ".", "ok");
-    setModoAtivo("0");
-    carregarCiclo(0);
-  } else {
-    msg(d.erro || "Erro ao salvar.", "erro");
-  }
+// Selecionar/desmarcar todos os técnicos
+document.getElementById("tec-todos").addEventListener("change", function () {
+  checkboxesTec().forEach((c) => { c.checked = this.checked; });
+  onTecChange();
+});
+
+// Modal da lista completa de O.S.
+document.getElementById("modal-os-fechar").addEventListener("click", fecharModalOS);
+document.getElementById("modal-os-vermenos").addEventListener("click", fecharModalOS);
+document.getElementById("modal-os").addEventListener("click", (e) => {
+  if (e.target.id === "modal-os") fecharModalOS();
 });
 
 // ---------- Sinalização de O.S. ----------
@@ -348,30 +383,12 @@ document.getElementById("btn-sair").addEventListener("click", async () => {
   window.location.href = "/";
 });
 
-// Início
-(async function () {
-  const r = await fetch("/api/ciclo");
-  if (!r.ok) {
-    if (r.status === 401) window.location.href = "/";
-    return;
-  }
-  const cfg = await r.json();
-  DIA_CICLO = cfg.dia_ciclo;
-  PAPEL = cfg.papel;
-
-  if (cfg.papel === "terceirizado") {
-    document.getElementById("bloco-config").style.display = "block";
-    if (DIA_CICLO) document.getElementById("dia-ciclo").value = DIA_CICLO;
-  }
-
-  if (DIA_CICLO) {
-    setModoAtivo("0");
-    carregarCiclo(0);
-  } else {
-    // sem ciclo definido: começa no modo personalizado (hoje)
-    setModoAtivo("custom");
-    document.getElementById("f-de").value = hojeStr();
-    document.getElementById("f-ate").value = hojeStr();
-    carregarCustom();
-  }
+// Início — padrão: últimos 30 dias
+(function () {
+  const hoje = new Date();
+  const ini = new Date();
+  ini.setDate(ini.getDate() - 29);
+  document.getElementById("f-de").value = iso(ini);
+  document.getElementById("f-ate").value = iso(hoje);
+  carregarCustom();
 })();

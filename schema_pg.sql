@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   plano           TEXT,
   limite_tecnicos INTEGER,
   teste_expira    TEXT,
+  valor_personalizado NUMERIC,
   ativo           INTEGER NOT NULL DEFAULT 1,
   criado_em       TEXT NOT NULL DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
 );

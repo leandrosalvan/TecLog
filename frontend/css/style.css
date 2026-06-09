@@ -281,6 +281,17 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 .cliente-card .li-sub { margin-top: 2px; }
 .acts-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 
+/* Campo de busca (Backoffice) */
+.busca-input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-size: 15px;
+  margin: 4px 0 12px;
+}
+.busca-input:focus { outline: none; border-color: var(--primary); }
+
 /* Aviso de conta suspensa (somente leitura) */
 .banner-suspenso {
   background: #fef3c7;
@@ -295,14 +306,12 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 
 /* Título-divisor (visual de botão, não clicável) entre lista e formulário */
 .form-titulo {
-  background: var(--primary);
-  color: #fff;
+  color: var(--ink);
   font-weight: 700;
-  font-size: 15px;
-  text-align: center;
-  padding: 12px;
-  border-radius: 10px;
-  margin: 22px 0 6px;
+  font-size: 16px;
+  margin: 18px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   user-select: none;
 }
 
@@ -385,6 +394,8 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
   padding: 6px 0;
 }
 .valor-input:focus { outline: none; }
+.valor-view { font-size: 15px; font-weight: 700; color: var(--ink); }
+.valor-view.zero { color: #b45309; font-weight: 600; }
 #btn-salvar { position: sticky; bottom: 12px; box-shadow: var(--shadow); }
 
 /* Relatório (Ordens de Serviço) */
@@ -527,3 +538,99 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 .stat.destaque { background: var(--primary-dark); border-color: var(--primary-dark); }
 .stat.destaque .lbl { color: #d1fae5; }
 .stat.destaque .val { color: #fff; }
+
+/* ── Finanças: fluxo de caixa ── */
+.fluxo-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+.fc-campo { flex: 1 1 180px; }
+.fc-campo label { display: block; margin: 0 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.totais {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.totais-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.totais-linha strong { font-size: 15px; }
+.totais-linha.alerta span, .totais-linha.alerta strong { color: #dc2626; }
+.print-header { display: none; }
+
+.aviso-trava {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 10px 0;
+}
+.aviso-trava a { color: var(--primary-dark); font-weight: 700; }
+.msg a { color: inherit; font-weight: 800; text-decoration: underline; }
+
+.chk-todos { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }
+.chk-tec { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.chk-todos input, .chk-tec input { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex: 0 0 auto; }
+
+.ver-mais { margin-top: 8px; }
+.btn-expandir {
+  width: 100%;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 11px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-expandir:hover { background: #fff; border-color: var(--primary); }
+
+/* Modal com lista rolável (header + rodapé fixos) */
+.modal.modal-lista {
+  padding: 0;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-lista .modal-head {
+  padding: 16px 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.modal-lista .lista-scroll {
+  overflow-y: auto;
+  padding: 4px 18px 10px;
+  margin: 0;
+  flex: 1 1 auto;
+}
+.modal-lista .modal-foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.modal-lista .modal-foot .btn { margin-top: 0; width: 100%; }
+
+@media print {
+  body * { visibility: hidden; }
+  #area-relatorio, #area-relatorio * { visibility: visible; }
+  #area-relatorio { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+  .print-header { display: block !important; margin-bottom: 14px; }
+  .print-header .ph-titulo { font-size: 18px; font-weight: 800; }
+  .print-header .ph-sub { font-size: 13px; color: #444; margin-top: 2px; }
+  .cliente-card { box-shadow: none !important; border: 1px solid #ddd; }
+}

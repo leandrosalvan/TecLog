@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Clientes</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/admin" class="link-voltar">← Backoffice</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Clientes</h2>
+    <p class="page-sub">Crie e gerencie os acessos dos seus clientes. O cliente paga, você cria o login aqui e ele já entra.</p>
+
+    <!-- Novo cliente -->
+    <div class="section">
+      <h3>Criar acesso de cliente</h3>
+      <form id="form-cliente" class="form-inline">
+        <label for="c-nome">Nome / empresa do cliente</label>
+        <input type="text" id="c-nome" placeholder="Ex.: J. A instalações" required />
+
+        <label for="c-email">E-mail (login dele)</label>
+        <input type="email" id="c-email" placeholder="cliente@exemplo.com" required />
+
+        <label for="c-tel">Telefone / contato</label>
+        <input type="tel" id="c-tel" placeholder="(00) 00000-0000" />
+
+        <label for="c-senha">Senha inicial</label>
+        <input type="text" id="c-senha" placeholder="mínimo 4 caracteres" required />
+
+        <label for="c-plano">Plano</label>
+        <select id="c-plano">
+          <option value="Starter">Starter — 5 técnicos</option>
+          <option value="Standard">Standard — 10 técnicos</option>
+          <option value="Advanced">Advanced — 20 técnicos</option>
+          <option value="Professional">Professional — 30 técnicos</option>
+          <option value="Premium">Premium — 40 técnicos</option>
+          <option value="Enterprise">Enterprise — 50+ técnicos</option>
+          <option value="Teste">Teste — expira em 24h</option>
+          <option value="Personalizado">Personalizado</option>
+        </select>
+
+        <label for="c-valor" id="c-valor-label" style="display:none">Valor mensal do plano (R$)</label>
+        <input type="number" id="c-valor" min="0" step="0.01" placeholder="Ex.: 249,90" style="display:none" />
+
+        <label for="c-limite">Limite de técnicos (logins)</label>
+        <input type="number" id="c-limite" min="0" value="5" />
+
+        <label for="c-venc">Vence em (opcional)</label>
+        <input type="date" id="c-venc" />
+
+        <div id="msg-cliente" class="msg"></div>
+        <button type="submit" class="btn btn-sm">+ Criar acesso</button>
+      </form>
+    </div>
+
+    <!-- Lista de clientes -->
+    <div class="section">
+      <div class="classe-head">
+        <h3>Clientes</h3>
+        <span class="tag" id="resumo-clientes">0</span>
+      </div>
+      <input type="text" id="busca-clientes" class="busca-input" placeholder="🔎 Buscar por nome, e-mail ou telefone…" />
+      <ul class="list" id="lista-clientes"></ul>
+    </div>
+  </div>
+
+  <script src="/js/admin_clientes.js"></script>
+</body>
+</html>

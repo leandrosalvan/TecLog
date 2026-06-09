@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>TecLog+ · Finanças</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <a href="/admin" class="link-voltar">← Backoffice</a>
+    <div class="logo">TecLog<span>+</span></div>
+    <button id="btn-sair">Sair</button>
+  </div>
+
+  <div class="container">
+    <h2 class="page-title">Finanças</h2>
+    <p class="page-sub">Resumo dos seus clientes e fluxo de caixa.</p>
+
+    <div class="stats" id="resumo"></div>
+
+    <div class="section">
+      <div class="classe-head">
+        <h3>Fluxo de caixa</h3>
+        <span class="tag" id="resumo-fluxo">0</span>
+      </div>
+
+      <div class="fluxo-controls no-print">
+        <div class="fc-campo">
+          <label for="filtro-plano">Filtrar por plano</label>
+          <select id="filtro-plano" class="edit-input"></select>
+        </div>
+        <button id="btn-relatorio" class="btn btn-sm">📄 Relatório (PDF)</button>
+      </div>
+
+      <div id="area-relatorio">
+        <div class="print-header" id="print-header"></div>
+        <ul class="list" id="fluxo"></ul>
+        <div class="totais" id="totais"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/admin_financas.js"></script>
+</body>
+</html>

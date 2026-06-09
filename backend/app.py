@@ -13,7 +13,7 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 
 # Classes pré-definidas no cadastro + valor inicial do perfil tec1 (terceirizado)
-CLASSES_PADRAO = [("INSTALAÇÃO", 100), ("SUPORTE", 50), ("DEVICES", 30)]
+CLASSES_PADRAO = [("INSTALAÇÃO", 0), ("SUPORTE", 0), ("DEVICES", 0)]  # nascem zeradas: o Líder define os valores reais
 
 
 # Helpers de data/hora agnósticos ao banco (SQLite/Postgres). Usa o fuso do servidor
@@ -236,6 +236,26 @@ def admin_page():
     return send_from_directory(FRONTEND_DIR, "admin.html")
 
 
+@app.route("/admin/equipe")
+def admin_equipe_page():
+    return send_from_directory(FRONTEND_DIR, "admin_equipe.html")
+
+
+@app.route("/admin/clientes")
+def admin_clientes_page():
+    return send_from_directory(FRONTEND_DIR, "admin_clientes.html")
+
+
+@app.route("/admin/conta")
+def admin_conta_page():
+    return send_from_directory(FRONTEND_DIR, "admin_conta.html")
+
+
+@app.route("/admin/financas")
+def admin_financas_page():
+    return send_from_directory(FRONTEND_DIR, "admin_financas.html")
+
+
 @app.route("/planos")
 def planos_page():
     return send_from_directory(FRONTEND_DIR, "planos.html")
@@ -254,13 +274,26 @@ def arquivos(filename):
 # ----------------------------------------------------------------------------
 # Autenticação
 # ----------------------------------------------------------------------------
+def _parse_valor(v):
+    """Converte um valor monetário (str/num, com vírgula ou ponto) em float ou None."""
+    if v is None:
+        return None
+    s = str(v).strip().replace("R$", "").replace(" ", "").replace(",", ".")
+    if s == "":
+        return None
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
+
+
 def _criar_terceirizado(conn, nome, email, senha, vencimento=None, plano=None, limite=None,
-                        telefone=None, teste_expira=None):
+                        telefone=None, teste_expira=None, valor_personalizado=None):
     """Cria um terceirizado completo (usuário + perfil principal + classes/valores padrão). Retorna o id."""
     cur = conn.execute(
-        "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, vencimento, plano, limite_tecnicos, teste_expira) "
-        "VALUES (?, ?, ?, ?, 'terceirizado', ?, ?, ?, ?)",
-        (nome, email, telefone, generate_password_hash(senha), vencimento, plano, limite, teste_expira),
+        "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, vencimento, plano, limite_tecnicos, teste_expira, valor_personalizado) "
+        "VALUES (?, ?, ?, ?, 'terceirizado', ?, ?, ?, ?, ?)",
+        (nome, email, telefone, generate_password_hash(senha), vencimento, plano, limite, teste_expira, valor_personalizado),
     )
     terc_id = cur.lastrowid
     cur = conn.execute(
@@ -377,13 +410,14 @@ def api_admin_clientes():
     try:
         clientes = []
         for r in conn.execute(
-            "SELECT u.id, u.nome, u.email, u.telefone, u.ativo, u.vencimento, u.plano, u.limite_tecnicos, u.teste_expira, u.criado_em, "
+            "SELECT u.id, u.nome, u.email, u.telefone, u.ativo, u.vencimento, u.plano, u.limite_tecnicos, u.teste_expira, u.valor_personalizado, u.criado_em, "
             "(SELECT COUNT(*) FROM usuarios q WHERE q.terceirizado_id = u.id AND q.papel='quarteirizado') AS tecnicos "
             "FROM usuarios u WHERE u.papel='terceirizado' AND u.is_admin = 0 "
             "ORDER BY u.ativo DESC, u.nome"
         ):
             d = dict(r)
             d["ativo"] = bool(r["ativo"])
+            d["valor_personalizado"] = float(r["valor_personalizado"]) if r["valor_personalizado"] is not None else None
             est = _estado_assinatura(conn, r["ativo"], r["vencimento"], r["plano"], r["teste_expira"])
             d["estado"] = est["estado"]
             d["dias_atraso"] = est.get("dias_atraso")
@@ -407,6 +441,7 @@ def api_admin_criar():
     plano = (data.get("plano") or "").strip() or None
     limite = data.get("limite_tecnicos")
     limite = int(limite) if str(limite).isdigit() else None
+    valor = _parse_valor(data.get("valor_personalizado")) if (plano or "").strip().lower() == "personalizado" else None
     if not nome or not email or not senha:
         return jsonify({"erro": "Preencha nome, e-mail e senha."}), 400
     if len(senha) < 4:
@@ -418,7 +453,7 @@ def api_admin_criar():
         teste_expira = None
         if plano and plano.strip().lower() == "teste":
             teste_expira = _mais_24h()
-        _criar_terceirizado(conn, nome, email, senha, vencimento, plano, limite, telefone, teste_expira)
+        _criar_terceirizado(conn, nome, email, senha, vencimento, plano, limite, telefone, teste_expira, valor)
         conn.commit()
         return jsonify({"ok": True})
     finally:
@@ -451,6 +486,12 @@ def api_admin_editar(cid):
                 # começou um novo teste agora -> 24h
                 exp = _mais_24h()
                 conn.execute("UPDATE usuarios SET teste_expira = ? WHERE id = ?", (exp, cid))
+            # saiu do Personalizado -> zera o valor custom
+            if not (plano and plano.strip().lower() == "personalizado"):
+                conn.execute("UPDATE usuarios SET valor_personalizado = NULL WHERE id = ?", (cid,))
+        if "valor_personalizado" in data:
+            val = _parse_valor(data.get("valor_personalizado"))
+            conn.execute("UPDATE usuarios SET valor_personalizado = ? WHERE id = ?", (val, cid))
         if "limite_tecnicos" in data:
             lim = data.get("limite_tecnicos")
             lim = int(lim) if str(lim).isdigit() else None
@@ -538,29 +579,55 @@ def api_admin_excluir(cid):
         conn.close()
 
 
-@app.post("/api/admin/redefinir-senha")
+@app.get("/api/admin/clientes/<int:cid>/equipe")
 @login_required
 @admin_required
-def api_admin_redefinir_senha():
-    data = request.get_json(force=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    nova = data.get("senha") or ""
-    if not email:
-        return jsonify({"erro": "Informe o e-mail do usuário."}), 400
-    if len(nova) < 4:
-        return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
+def api_admin_equipe(cid):
     conn = get_db()
     try:
-        u = conn.execute(
-            "SELECT id, nome, papel FROM usuarios WHERE email = ? AND is_admin = 0", (email,)
+        cliente = conn.execute(
+            "SELECT id, nome, email, telefone FROM usuarios "
+            "WHERE id = ? AND papel = 'terceirizado' AND is_admin = 0", (cid,)
         ).fetchone()
-        if not u:
-            return jsonify({"erro": "Nenhum usuário com esse e-mail."}), 404
-        conn.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?",
-                     (generate_password_hash(nova), u["id"]))
+        if not cliente:
+            return jsonify({"erro": "Cliente não encontrado."}), 404
+        tecnicos = [dict(r) for r in conn.execute(
+            "SELECT u.id, u.nome, u.email, u.telefone, p.descricao AS perfil_titulo "
+            "FROM usuarios u LEFT JOIN perfis p ON p.id = u.perfil_id "
+            "WHERE u.terceirizado_id = ? AND u.papel = 'quarteirizado' ORDER BY u.nome",
+            (cid,)
+        )]
+        return jsonify({"cliente": dict(cliente), "tecnicos": tecnicos})
+    finally:
+        conn.close()
+
+
+@app.patch("/api/admin/tecnicos/<int:tid>")
+@login_required
+@admin_required
+def api_admin_tecnico_editar(tid):
+    data = request.get_json(force=True) or {}
+    nome = (data.get("nome") or "").strip()
+    telefone = (data.get("telefone") or "").strip() or None
+    senha = data.get("senha") or ""
+    if not nome:
+        return jsonify({"erro": "Informe o nome."}), 400
+    conn = get_db()
+    try:
+        t = conn.execute(
+            "SELECT id FROM usuarios WHERE id = ? AND papel = 'quarteirizado'", (tid,)
+        ).fetchone()
+        if not t:
+            return jsonify({"erro": "Técnico não encontrado."}), 404
+        if senha:
+            if len(senha) < 4:
+                return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
+            conn.execute("UPDATE usuarios SET nome = ?, telefone = ?, senha_hash = ? WHERE id = ?",
+                         (nome, telefone, generate_password_hash(senha), tid))
+        else:
+            conn.execute("UPDATE usuarios SET nome = ?, telefone = ? WHERE id = ?", (nome, telefone, tid))
         conn.commit()
-        tipo = "técnico" if u["papel"] == "quarteirizado" else "cliente"
-        return jsonify({"ok": True, "nome": u["nome"], "tipo": tipo})
+        return jsonify({"ok": True})
     finally:
         conn.close()
 
@@ -578,6 +645,7 @@ def api_equipe_listar():
         owner = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
         principal_id = owner["perfil_id"] if owner else None
 
+        prontos = _perfis_prontos_ids(conn, terc)
         perfis = []
         for r in conn.execute(
             "SELECT id, descricao, ordem FROM perfis "
@@ -587,6 +655,7 @@ def api_equipe_listar():
         ):
             d = dict(r)
             d["principal"] = (r["id"] == principal_id)
+            d["pronto"] = (r["id"] in prontos)
             perfis.append(d)
 
         tecnicos = [dict(r) for r in conn.execute(
@@ -645,6 +714,7 @@ def api_tecnico_criar():
     senha = data.get("senha") or ""
     telefone = (data.get("telefone") or "").strip() or None
     perfil_id = data.get("perfil_id") or None
+    perfil_id = int(perfil_id) if perfil_id else None
 
     if not nome or not email or not senha:
         return jsonify({"erro": "Preencha nome, e-mail e senha."}), 400
@@ -664,13 +734,10 @@ def api_tecnico_criar():
             ).fetchone()["c"]
             if atual >= limite:
                 return jsonify({"erro": "Limite de técnicos do seu plano atingido. Fale com o suporte para liberar mais logins."}), 403
-        if perfil_id:
-            ok = conn.execute(
-                "SELECT id FROM perfis WHERE id = ? AND terceirizado_id = ?",
-                (perfil_id, terc),
-            ).fetchone()
-            if not ok:
-                return jsonify({"erro": "Perfil inválido."}), 400
+        # Trava: precisa de um perfil com valores definidos (≥1 > 0)
+        erro = _validar_perfil_para_tecnico(conn, terc, perfil_id)
+        if erro:
+            return jsonify({"erro": erro}), 400
         conn.execute(
             "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, terceirizado_id, perfil_id) "
             "VALUES (?, ?, ?, ?, 'quarteirizado', ?, ?)",
@@ -698,6 +765,9 @@ def api_perfil_editar(perfil_id):
         ).fetchone()
         if not p:
             return jsonify({"erro": "Perfil não encontrado."}), 404
+        owner = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
+        if owner and owner["perfil_id"] == perfil_id:
+            return jsonify({"erro": "O nome do seu perfil principal vem do seu cadastro e não é editável aqui."}), 400
         conn.execute("UPDATE perfis SET descricao = ? WHERE id = ?", (titulo, perfil_id))
         conn.commit()
         return jsonify({"ok": True})
@@ -744,6 +814,7 @@ def api_tecnico_editar(tecnico_id):
     senha = data.get("senha") or ""
     telefone = (data.get("telefone") or "").strip() or None
     perfil_id = data.get("perfil_id") or None
+    perfil_id = int(perfil_id) if perfil_id else None
 
     if not nome or not email:
         return jsonify({"erro": "Preencha nome e e-mail."}), 400
@@ -751,7 +822,7 @@ def api_tecnico_editar(tecnico_id):
     conn = get_db()
     try:
         t = conn.execute(
-            "SELECT id FROM usuarios WHERE id = ? AND terceirizado_id = ? AND papel = 'quarteirizado'",
+            "SELECT id, perfil_id FROM usuarios WHERE id = ? AND terceirizado_id = ? AND papel = 'quarteirizado'",
             (tecnico_id, terc),
         ).fetchone()
         if not t:
@@ -761,12 +832,11 @@ def api_tecnico_editar(tecnico_id):
         ).fetchone()
         if dup:
             return jsonify({"erro": "Já existe uma conta com esse e-mail."}), 409
-        if perfil_id:
-            ok = conn.execute(
-                "SELECT id FROM perfis WHERE id = ? AND terceirizado_id = ?", (perfil_id, terc)
-            ).fetchone()
-            if not ok:
-                return jsonify({"erro": "Perfil inválido."}), 400
+        # Só valida o perfil se está MUDANDO (mantém o atual mesmo que ainda não esteja "pronto")
+        if perfil_id != t["perfil_id"]:
+            erro = _validar_perfil_para_tecnico(conn, terc, perfil_id)
+            if erro:
+                return jsonify({"erro": erro}), 400
         if senha:
             if len(senha) < 4:
                 return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
@@ -851,9 +921,37 @@ def api_perfil_mover(perfil_id):
 # ----------------------------------------------------------------------------
 # Classes de serviço + matriz de Valores (classe × perfil) — só o terceirizado
 # ----------------------------------------------------------------------------
+def _perfis_prontos_ids(conn, terc):
+    """IDs dos perfis com pelo menos um valor > 0 (prontos p/ receber técnicos)."""
+    return {r["perfil_id"] for r in conn.execute(
+        "SELECT DISTINCT v.perfil_id FROM valores v "
+        "JOIN classes_servico c ON c.id = v.classe_id "
+        "WHERE c.terceirizado_id = ? AND v.valor > 0", (terc,)
+    )}
+
+
+def _validar_perfil_para_tecnico(conn, terc, perfil_id):
+    """Valida o perfil que será atribuído a um técnico. Retorna msg de erro ou None."""
+    if not perfil_id:
+        return "Atribua um perfil ao técnico. Crie um perfil e defina seus valores na aba Valores."
+    p = conn.execute(
+        "SELECT id, descricao FROM perfis WHERE id = ? AND terceirizado_id = ?", (perfil_id, terc)
+    ).fetchone()
+    if not p:
+        return "Perfil inválido."
+    owner = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
+    if owner and owner["perfil_id"] == perfil_id:
+        return "O seu perfil principal não pode ser atribuído a um técnico."
+    if perfil_id not in _perfis_prontos_ids(conn, terc):
+        nome = p["descricao"] or "(sem título)"
+        return 'Defina ao menos um valor (> 0) para o perfil "' + nome + '" na aba Valores antes de usá-lo.'
+    return None
+
+
 def _perfis_ordenados(conn, terc):
     owner = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
     principal_id = owner["perfil_id"] if owner else None
+    prontos = _perfis_prontos_ids(conn, terc)
     perfis = []
     for r in conn.execute(
         "SELECT id, descricao FROM perfis WHERE terceirizado_id = ? AND ativo = 1 "
@@ -864,6 +962,7 @@ def _perfis_ordenados(conn, terc):
             "id": r["id"],
             "descricao": r["descricao"],
             "principal": r["id"] == principal_id,
+            "pronto": r["id"] in prontos,
         })
     return perfis
 
@@ -1016,9 +1115,19 @@ def _ctx_os(conn, uid):
     dono = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (dono_id,)).fetchone()
     return {
         "dono_id": dono_id,
+        "papel": u["papel"],
         "perfil_usuario": u["perfil_id"],
         "perfil_principal": dono["perfil_id"] if dono else None,
     }
+
+
+def _erro_valor_zero(papel, nome_classe):
+    """Mensagem de trava quando o valor (classe × perfil) é R$ 0,00."""
+    if papel == "terceirizado":
+        return ('A classe "' + nome_classe + '" está com valor R$ 0,00 para o seu perfil. '
+                'Defina os valores na aba Valores antes de registrar a O.S.')
+    return ('A classe "' + nome_classe + '" ainda está sem valor definido para o seu perfil. '
+            'Peça ao líder da equipe para configurar os valores antes de registrar a O.S.')
 
 
 def _valor_de(conn, classe_id, perfil_id):
@@ -1051,12 +1160,18 @@ def api_os_formdata():
     conn = get_db()
     try:
         ctx = _ctx_os(conn, uid)
-        classes = [dict(r) for r in conn.execute(
+        classes = []
+        for r in conn.execute(
             "SELECT id, nome FROM classes_servico WHERE terceirizado_id = ? AND ativo = 1 ORDER BY id",
             (ctx["dono_id"],)
-        )]
+        ):
+            classes.append({
+                "id": r["id"],
+                "nome": r["nome"],
+                "valor": _valor_de(conn, r["id"], ctx["perfil_usuario"]),
+            })
         hoje = _hoje()
-        return jsonify({"classes": classes, "hoje": hoje})
+        return jsonify({"classes": classes, "hoje": hoje, "papel": ctx["papel"]})
     finally:
         conn.close()
 
@@ -1088,10 +1203,14 @@ def api_os_criar():
         if not data_exec:
             data_exec = _hoje()
 
-        cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         valor_repasse = _valor_de(conn, classe_id, ctx["perfil_usuario"])
         valor_cheio = _valor_de(conn, classe_id, ctx["perfil_principal"])
+        # Trava: não registra O.S. com valor zerado (perfil sem valor para esta classe)
+        if not valor_repasse or valor_repasse <= 0:
+            nome_cls = conn.execute("SELECT nome FROM classes_servico WHERE id = ?", (classe_id,)).fetchone()["nome"]
+            return jsonify({"erro": _erro_valor_zero(ctx["papel"], nome_cls)}), 400
 
+        cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         conn.execute(
             "INSERT INTO ordens_servico "
             "(terceirizado_id, tecnico_id, cliente_id, classe_id, data_execucao, valor_repasse, valor_cheio) "
@@ -1158,10 +1277,13 @@ def api_os_editar(os_id):
         if not data_exec:
             data_exec = _hoje()
 
-        cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         valor_repasse = _valor_de(conn, classe_id, ctx["perfil_usuario"])
         valor_cheio = _valor_de(conn, classe_id, ctx["perfil_principal"])
+        if not valor_repasse or valor_repasse <= 0:
+            nome_cls = conn.execute("SELECT nome FROM classes_servico WHERE id = ?", (classe_id,)).fetchone()["nome"]
+            return jsonify({"erro": _erro_valor_zero(ctx["papel"], nome_cls)}), 400
 
+        cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         conn.execute(
             "UPDATE ordens_servico SET cliente_id = ?, classe_id = ?, data_execucao = ?, "
             "valor_repasse = ?, valor_cheio = ? WHERE id = ?",

@@ -6,6 +6,10 @@ function msg(id, texto, tipo) {
   el.className = "msg show " + tipo;
 }
 
+function fmtVal(v) {
+  return (Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ---------- Perfis de pagamento ----------
 function renderPerfis(perfis) {
   const ulP = document.getElementById("lista-perfis");
@@ -18,7 +22,9 @@ function renderPerfis(perfis) {
     info.className = "li-info";
     info.innerHTML =
       '<div class="li-main">' + (p.descricao || "(sem título)") +
-      (p.principal ? " (você)" : "") + "</div>";
+      (p.principal ? " (você)" : "") +
+      (!p.principal && !p.pronto ? ' <span class="status pendente">⚠️ sem valores</span>' : "") +
+      "</div>";
 
     const actions = document.createElement("div");
     actions.className = "li-actions";
@@ -36,12 +42,12 @@ function renderPerfis(perfis) {
       actions.appendChild(down);
     }
 
-    const ed = document.createElement("button");
-    ed.className = "btn-act editar"; ed.textContent = "Editar";
-    ed.addEventListener("click", () => modoEdicaoPerfil(li, p));
-    actions.appendChild(ed);
-
     if (!p.principal) {
+      const ed = document.createElement("button");
+      ed.className = "btn-act editar"; ed.textContent = "Editar";
+      ed.addEventListener("click", () => modoEdicaoPerfil(li, p));
+      actions.appendChild(ed);
+
       const ex = document.createElement("button");
       ex.className = "btn-act excluir"; ex.textContent = "Excluir";
       ex.addEventListener("click", () => excluirPerfil(p));
@@ -92,6 +98,116 @@ async function moverPerfil(p, direcao) {
   else { const d = await r.json().catch(() => ({})); msg("msg-perfil", d.erro || "Erro ao mover.", "erro"); }
 }
 
+// ---------- Matriz de valores: um card por classe (travado; "Editar" libera) ----------
+function buildClasseCard(cls, perfis, valoresClasse) {
+  const card = document.createElement("div");
+  card.className = "section";
+
+  // ---- Modo visualização (valores só leitura) ----
+  function renderView() {
+    card.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "classe-head";
+    const titulo = document.createElement("h3");
+    titulo.textContent = cls.nome;
+    const acts = document.createElement("div");
+    acts.className = "li-actions";
+    const bEd = document.createElement("button");
+    bEd.className = "btn-act editar"; bEd.textContent = "Editar";
+    bEd.addEventListener("click", renderEdit);
+    const bEx = document.createElement("button");
+    bEx.className = "btn-act excluir"; bEx.textContent = "Excluir";
+    bEx.addEventListener("click", () => excluirClasse(cls));
+    acts.appendChild(bEd); acts.appendChild(bEx);
+    head.appendChild(titulo); head.appendChild(acts);
+    card.appendChild(head);
+
+    perfis.forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "valor-row";
+      const lab = document.createElement("label");
+      lab.textContent = (p.descricao || "(sem título)") + (p.principal ? " (você)" : "");
+      const v = valoresClasse[String(p.id)] != null ? valoresClasse[String(p.id)] : 0;
+      const view = document.createElement("div");
+      view.className = "valor-view" + (Number(v) ? "" : " zero");
+      view.textContent = "R$ " + fmtVal(v);
+      row.appendChild(lab); row.appendChild(view);
+      card.appendChild(row);
+    });
+  }
+
+  // ---- Modo edição (nome + valores; setas de R$5) ----
+  function renderEdit() {
+    card.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "classe-head";
+    const nomeInp = document.createElement("input");
+    nomeInp.className = "edit-input"; nomeInp.value = cls.nome; nomeInp.placeholder = "Nome da classe";
+    head.appendChild(nomeInp);
+    card.appendChild(head);
+
+    const inputs = [];
+    perfis.forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "valor-row";
+      const lab = document.createElement("label");
+      lab.textContent = (p.descricao || "(sem título)") + (p.principal ? " (você)" : "");
+      const field = document.createElement("div");
+      field.className = "valor-field";
+      const cifra = document.createElement("span"); cifra.textContent = "R$";
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "5"; inp.min = "0"; inp.className = "valor-input";
+      inp.value = valoresClasse[String(p.id)] != null ? valoresClasse[String(p.id)] : 0;
+      inp.dataset.perfil = p.id;
+      inputs.push(inp);
+      field.appendChild(cifra); field.appendChild(inp);
+      row.appendChild(lab); row.appendChild(field);
+      card.appendChild(row);
+    });
+
+    const acts = document.createElement("div");
+    acts.className = "li-actions"; acts.style.marginTop = "10px";
+    const bSave = document.createElement("button");
+    bSave.className = "btn-act salvar"; bSave.textContent = "Salvar";
+    bSave.addEventListener("click", async () => {
+      // 1) nome da classe (se mudou)
+      const novoNome = nomeInp.value.trim();
+      if (novoNome && novoNome !== cls.nome) {
+        const rn = await fetch("/api/classes/" + cls.id, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: novoNome }),
+        });
+        if (!rn.ok) {
+          const d = await rn.json().catch(() => ({}));
+          msg("msg-valores", d.erro || "Erro ao salvar o nome da classe.", "erro");
+          return;
+        }
+      }
+      // 2) valores da classe
+      const valores = inputs.map((inp) => ({
+        classe_id: cls.id,
+        perfil_id: Number(inp.dataset.perfil),
+        valor: parseFloat(inp.value) || 0,
+      }));
+      const r = await fetch("/api/valores", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valores: valores }),
+      });
+      if (r.ok) { msg("msg-valores", "Valores salvos com sucesso! ✅", "ok"); carregar(); }
+      else { const d = await r.json().catch(() => ({})); msg("msg-valores", d.erro || "Erro ao salvar valores.", "erro"); }
+    });
+    const bCancel = document.createElement("button");
+    bCancel.className = "btn-act"; bCancel.textContent = "Cancelar";
+    bCancel.addEventListener("click", renderView);
+    acts.appendChild(bSave); acts.appendChild(bCancel);
+    card.appendChild(acts);
+    nomeInp.focus();
+  }
+
+  renderView();
+  return card;
+}
+
 async function carregar() {
   const r = await fetch("/api/valores");
   if (!r.ok) {
@@ -100,114 +216,18 @@ async function carregar() {
   }
   const data = await r.json();
   renderPerfis(data.perfis);
+
   const matriz = document.getElementById("matriz");
   matriz.innerHTML = "";
-
   if (data.classes.length === 0) {
     matriz.innerHTML =
       '<div class="section"><p class="empty">Nenhuma classe de serviço ainda. Crie uma acima.</p></div>';
-    document.getElementById("btn-salvar").style.display = "none";
     return;
   }
-
   data.classes.forEach((cls) => {
-    const card = document.createElement("div");
-    card.className = "section";
-
-    // Cabeçalho da classe (nome + editar/excluir)
-    const head = document.createElement("div");
-    head.className = "classe-head";
-
-    const titulo = document.createElement("h3");
-    titulo.textContent = cls.nome;
-
-    const acts = document.createElement("div");
-    acts.className = "li-actions";
-    const bEd = document.createElement("button");
-    bEd.className = "btn-act editar";
-    bEd.textContent = "Editar";
-    bEd.addEventListener("click", () => editarClasse(head, cls, titulo));
-    const bEx = document.createElement("button");
-    bEx.className = "btn-act excluir";
-    bEx.textContent = "Excluir";
-    bEx.addEventListener("click", () => excluirClasse(cls));
-    acts.appendChild(bEd);
-    acts.appendChild(bEx);
-
-    head.appendChild(titulo);
-    head.appendChild(acts);
-    card.appendChild(head);
-
-    // Uma linha por perfil, com input de valor
     const valoresClasse = data.valores[String(cls.id)] || {};
-    data.perfis.forEach((p) => {
-      const row = document.createElement("div");
-      row.className = "valor-row";
-
-      const lab = document.createElement("label");
-      lab.textContent = (p.descricao || "(sem título)") + (p.principal ? " (você)" : "");
-
-      const field = document.createElement("div");
-      field.className = "valor-field";
-      const cifra = document.createElement("span");
-      cifra.textContent = "R$";
-      const inp = document.createElement("input");
-      inp.type = "number";
-      inp.step = "0.01";
-      inp.min = "0";
-      inp.className = "valor-input";
-      inp.value = valoresClasse[String(p.id)] != null ? valoresClasse[String(p.id)] : 0;
-      inp.dataset.classe = cls.id;
-      inp.dataset.perfil = p.id;
-
-      field.appendChild(cifra);
-      field.appendChild(inp);
-      row.appendChild(lab);
-      row.appendChild(field);
-      card.appendChild(row);
-    });
-
-    matriz.appendChild(card);
+    matriz.appendChild(buildClasseCard(cls, data.perfis, valoresClasse));
   });
-
-  document.getElementById("btn-salvar").style.display = "block";
-}
-
-// Editar nome da classe (inline)
-function editarClasse(head, cls, tituloEl) {
-  head.innerHTML = "";
-  const input = document.createElement("input");
-  input.className = "edit-input";
-  input.value = cls.nome;
-  input.placeholder = "Nome da classe";
-
-  const salvar = document.createElement("button");
-  salvar.className = "btn-act salvar";
-  salvar.textContent = "Salvar";
-  salvar.addEventListener("click", async () => {
-    const r = await fetch("/api/classes/" + cls.id, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome: input.value }),
-    });
-    if (r.ok) {
-      msg("msg-valores", "Classe atualizada.", "ok");
-      carregar();
-    } else {
-      const d = await r.json().catch(() => ({}));
-      msg("msg-valores", d.erro || "Erro ao salvar.", "erro");
-    }
-  });
-
-  const cancelar = document.createElement("button");
-  cancelar.className = "btn-act";
-  cancelar.textContent = "Cancelar";
-  cancelar.addEventListener("click", carregar);
-
-  head.appendChild(input);
-  head.appendChild(salvar);
-  head.appendChild(cancelar);
-  input.focus();
 }
 
 // Excluir classe
@@ -238,35 +258,11 @@ document.getElementById("form-classe").addEventListener("submit", async (e) => {
   });
   if (r.ok) {
     document.getElementById("classe-nome").value = "";
-    msg("msg-classe", "Classe criada!", "ok");
+    msg("msg-classe", "Classe criada! Clique em Editar nela para definir os valores.", "ok");
     carregar();
   } else {
     const d = await r.json().catch(() => ({}));
     msg("msg-classe", d.erro || "Erro ao criar classe.", "erro");
-  }
-});
-
-// Salvar todos os valores de uma vez
-document.getElementById("btn-salvar").addEventListener("click", async () => {
-  const inputs = document.querySelectorAll(".valor-input");
-  const valores = [];
-  inputs.forEach((inp) => {
-    valores.push({
-      classe_id: Number(inp.dataset.classe),
-      perfil_id: Number(inp.dataset.perfil),
-      valor: parseFloat(inp.value) || 0,
-    });
-  });
-  const r = await fetch("/api/valores", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ valores: valores }),
-  });
-  if (r.ok) {
-    msg("msg-valores", "Valores salvos com sucesso! ✅", "ok");
-  } else {
-    const d = await r.json().catch(() => ({}));
-    msg("msg-valores", d.erro || "Erro ao salvar valores.", "erro");
   }
 });
 
@@ -280,7 +276,7 @@ document.getElementById("form-perfil").addEventListener("submit", async (e) => {
   });
   if (r.ok) {
     document.getElementById("perfil-desc").value = "";
-    msg("msg-perfil", "Perfil criado!", "ok");
+    msg("msg-perfil", "Perfil criado! Clique em Editar numa classe para definir os valores dele.", "ok");
     carregar();
   } else {
     const d = await r.json().catch(() => ({}));
