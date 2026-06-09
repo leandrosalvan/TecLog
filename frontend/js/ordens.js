@@ -60,6 +60,9 @@ function render(data) {
     blocoTec.style.display = "none";
   }
 
+  document.getElementById("bloco-reajuste").style.display =
+    data.papel === "terceirizado" ? "" : "none";
+
   renderListaOS(data);
 }
 
@@ -238,6 +241,23 @@ document.querySelectorAll("[data-atalho]").forEach((b) => {
 });
 
 document.getElementById("btn-filtrar").addEventListener("click", carregarCustom);
+
+// Reajustar valores das O.S. pelo perfil atual de cada técnico
+document.getElementById("btn-reajustar").addEventListener("click", async () => {
+  if (!confirm("Reajustar os valores de TODAS as O.S. com base no perfil atual de cada técnico e na tabela de valores atual?\n\nIsso atualiza os relatórios.")) return;
+  const el = document.getElementById("msg-reajuste");
+  el.textContent = "Reajustando…"; el.className = "msg show ok";
+  const r = await fetch("/api/os/reajustar", { method: "POST" });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    el.textContent = "✅ " + d.atualizadas + " O.S. reajustadas pelo perfil atual.";
+    el.className = "msg show ok";
+    recarregar();
+  } else {
+    el.textContent = d.erro || "Erro ao reajustar.";
+    el.className = "msg show erro";
+  }
+});
 
 // Selecionar/desmarcar todos os técnicos
 document.getElementById("tec-todos").addEventListener("change", function () {

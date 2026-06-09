@@ -1370,6 +1370,44 @@ def api_os_excluir(os_id):
         conn.close()
 
 
+@app.post("/api/os/reajustar")
+@login_required
+@terceirizado_required
+def api_os_reajustar():
+    """Recalcula valor_repasse/valor_cheio de TODAS as O.S. do dono com base no
+    perfil ATUAL de cada técnico e na tabela de valores atual. Útil quando um técnico
+    teve o perfil corrigido depois de já ter lançado O.S."""
+    terc = session["uid"]
+    conn = get_db()
+    try:
+        dono = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
+        principal = dono["perfil_id"] if dono else None
+        # Matriz de valores do dono: (classe_id, perfil_id) -> valor
+        matriz = {}
+        for r in conn.execute(
+            "SELECT v.classe_id, v.perfil_id, v.valor FROM valores v "
+            "JOIN classes_servico c ON c.id = v.classe_id WHERE c.terceirizado_id = ?", (terc,)):
+            matriz[(r["classe_id"], r["perfil_id"])] = r["valor"]
+        # Perfil atual do dono + de cada técnico
+        perfil_de = {}
+        for r in conn.execute("SELECT id, perfil_id FROM usuarios WHERE id = ? OR terceirizado_id = ?", (terc, terc)):
+            perfil_de[r["id"]] = r["perfil_id"]
+        oss = [dict(r) for r in conn.execute(
+            "SELECT id, tecnico_id, classe_id FROM ordens_servico WHERE terceirizado_id = ?", (terc,))]
+        n = 0
+        for o in oss:
+            pf = perfil_de.get(o["tecnico_id"])
+            vr = matriz.get((o["classe_id"], pf), 0) or 0
+            vc = matriz.get((o["classe_id"], principal), 0) or 0
+            conn.execute("UPDATE ordens_servico SET valor_repasse = ?, valor_cheio = ? WHERE id = ?",
+                         (vr, vc, o["id"]))
+            n += 1
+        conn.commit()
+        return jsonify({"ok": True, "atualizadas": n})
+    finally:
+        conn.close()
+
+
 @app.get("/api/relatorio")
 @login_required
 def api_relatorio():
