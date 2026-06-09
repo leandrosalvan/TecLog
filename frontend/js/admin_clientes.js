@@ -15,6 +15,25 @@ function dataBR(s) {
   const p = s.split("-");
   return p[2] + "/" + p[1] + "/" + p[0];
 }
+function slug(s) {
+  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function localEmail(nome, sobrenome) {
+  const partes = ((nome || "") + " " + (sobrenome || "")).trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "";
+  if (partes.length === 1) return slug(partes[0]);
+  return partes.slice(0, -1).map((p) => slug(p).slice(0, 1)).join("") + slug(partes[partes.length - 1]);
+}
+function previewEmailLider() {
+  const lp = localEmail(document.getElementById("c-nome").value, document.getElementById("c-sobrenome").value);
+  const ap = slug(document.getElementById("c-apelido").value);
+  document.getElementById("c-email").value = (lp && ap) ? (lp + "@" + ap + ".teclog") : "";
+}
+function splitNome(full) {
+  const p = (full || "").trim().split(/\s+/).filter(Boolean);
+  return { nome: p[0] || "", sobrenome: p.slice(1).join(" ") };
+}
+
 function planoSelect(idSel, valor) {
   const opts = ["Starter", "Standard", "Advanced", "Professional", "Premium", "Enterprise", "Teste", "Personalizado"];
   return opts.map((o) => '<option value="' + o + '"' + (o === valor ? " selected" : "") + ">" + o + "</option>").join("");
@@ -142,8 +161,32 @@ function campo(label, el) {
 function modoEdicao(li, c) {
   li.innerHTML = "";
 
+  const partes = splitNome(c.nome);
   const nome = document.createElement("input");
-  nome.className = "edit-input"; nome.type = "text"; nome.value = c.nome;
+  nome.className = "edit-input"; nome.type = "text"; nome.value = partes.nome;
+
+  const sobre = document.createElement("input");
+  sobre.className = "edit-input"; sobre.type = "text"; sobre.value = partes.sobrenome;
+
+  const apelido = document.createElement("input");
+  apelido.className = "edit-input"; apelido.type = "text"; apelido.value = c.apelido || "";
+  apelido.placeholder = "Apelido da empresa";
+
+  const domAntigo = (c.email || "").split("@")[1] || "";
+  const email = document.createElement("input");
+  email.className = "edit-input auto"; email.type = "text"; email.value = c.email || ""; email.readOnly = true;
+  let regenerar = false;
+  const bRedef = document.createElement("button");
+  bRedef.type = "button"; bRedef.className = "btn-act"; bRedef.textContent = "Redefinir e-mail";
+  bRedef.addEventListener("click", () => {
+    regenerar = true;
+    const lp = localEmail(nome.value, sobre.value); // relê o nome e regenera pela regra de criação
+    const dom = slug(apelido.value) ? slug(apelido.value) + ".teclog" : domAntigo;
+    email.value = (lp || "?") + "@" + dom; // prévia; nº de conflito é resolvido ao salvar
+    bRedef.textContent = "✓ e-mail será regerado";
+  });
+  const emailCampo = campo("E-mail (login)", email);
+  emailCampo.appendChild(bRedef);
 
   const tel = document.createElement("input");
   tel.className = "edit-input"; tel.type = "tel"; tel.value = c.telefone || "";
@@ -177,7 +220,10 @@ function modoEdicao(li, c) {
   senha.className = "edit-input"; senha.type = "text";
   senha.placeholder = "Nova senha (em branco = manter)";
 
-  li.appendChild(campo("Nome / empresa", nome));
+  li.appendChild(campo("Nome", nome));
+  li.appendChild(campo("Sobrenome", sobre));
+  li.appendChild(campo("Apelido da empresa", apelido));
+  li.appendChild(emailCampo);
   li.appendChild(campo("Telefone / contato", tel));
   li.appendChild(campo("Plano (upgrade)", plano));
   li.appendChild(valorCampo);
@@ -192,11 +238,14 @@ function modoEdicao(li, c) {
   salvar.addEventListener("click", async () => {
     const body = {
       nome: nome.value,
+      sobrenome: sobre.value,
+      apelido: apelido.value,
       telefone: tel.value || null,
       plano: plano.value,
       limite_tecnicos: limite.value === "" ? null : Number(limite.value),
       vencimento: venc.value || null,
     };
+    if (regenerar) body.regenerar_email = true;
     if (plano.value === "Personalizado") body.valor_personalizado = valor.value || null;
     if (senha.value.trim()) body.senha = senha.value;
     const r = await fetch("/api/admin/clientes/" + c.id, {
@@ -229,6 +278,9 @@ document.getElementById("c-plano").addEventListener("change", function () {
   toggleValorCriacao(this.value);
 });
 
+["c-nome", "c-sobrenome", "c-apelido"].forEach((id) =>
+  document.getElementById(id).addEventListener("input", previewEmailLider));
+
 // Criar cliente
 document.getElementById("form-cliente").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -239,7 +291,8 @@ document.getElementById("form-cliente").addEventListener("submit", async (e) => 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       nome: document.getElementById("c-nome").value,
-      email: document.getElementById("c-email").value,
+      sobrenome: document.getElementById("c-sobrenome").value,
+      apelido: document.getElementById("c-apelido").value,
       telefone: document.getElementById("c-tel").value || null,
       senha: document.getElementById("c-senha").value,
       plano: planoVal,
@@ -252,8 +305,10 @@ document.getElementById("form-cliente").addEventListener("submit", async (e) => 
   if (r.ok) {
     document.getElementById("form-cliente").reset();
     document.getElementById("c-limite").value = 5;
+    document.getElementById("c-senha").value = "123456";
+    document.getElementById("c-email").value = "";
     toggleValorCriacao(document.getElementById("c-plano").value);
-    msg("msg-cliente", "Acesso criado com sucesso! ✅", "ok");
+    msg("msg-cliente", "Acesso criado! Login do líder: " + d.email, "ok");
     carregar();
   } else {
     msg("msg-cliente", d.erro || "Erro ao criar acesso.", "erro");

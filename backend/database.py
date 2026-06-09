@@ -113,6 +113,7 @@ def init_db():
             conn.executescript(f.read())
         # Migrações leves no Postgres (colunas adicionadas após o 1º deploy)
         conn.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS valor_personalizado NUMERIC")
+        conn.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS apelido TEXT")
         conn.commit()
         conn.close()
         return
@@ -143,6 +144,8 @@ def init_db():
         conn.execute("ALTER TABLE usuarios ADD COLUMN teste_expira TEXT")
     if "valor_personalizado" not in cols_u:
         conn.execute("ALTER TABLE usuarios ADD COLUMN valor_personalizado REAL")
+    if "apelido" not in cols_u:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN apelido TEXT")
 
     cols_os = [r["name"] for r in conn.execute("PRAGMA table_info(ordens_servico)")]
     novas = {

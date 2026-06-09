@@ -26,17 +26,20 @@
       <div id="trava-perfil" class="aviso-trava" style="display:none"></div>
       <div class="form-titulo">Adicionar novo técnico</div>
       <form id="form-tecnico" class="form-inline">
-        <label for="tec-nome">Nome do técnico</label>
-        <input type="text" id="tec-nome" placeholder="Nome completo" required />
+        <label for="tec-nome">Nome</label>
+        <input type="text" id="tec-nome" placeholder="Ex.: João Pedro" required />
 
-        <label for="tec-email">E-mail (login dele)</label>
-        <input type="email" id="tec-email" placeholder="tecnico@exemplo.com" required />
+        <label for="tec-sobrenome">Sobrenome</label>
+        <input type="text" id="tec-sobrenome" placeholder="Ex.: Silva" required />
+
+        <label for="tec-email">E-mail (login) — gerado automaticamente</label>
+        <input type="text" id="tec-email" class="auto" readonly placeholder="preencha nome e sobrenome" />
 
         <label for="tec-tel">Telefone / contato</label>
         <input type="tel" id="tec-tel" placeholder="(00) 00000-0000" />
 
         <label for="tec-senha">Senha inicial</label>
-        <input type="text" id="tec-senha" placeholder="mínimo 4 caracteres" required />
+        <input type="text" id="tec-senha" value="123456" required />
 
         <label for="tec-perfil">Perfil de repasse</label>
         <select id="tec-perfil"></select>

@@ -22,17 +22,23 @@
     <div class="section">
       <h3>Criar acesso de cliente</h3>
       <form id="form-cliente" class="form-inline">
-        <label for="c-nome">Nome / empresa do cliente</label>
-        <input type="text" id="c-nome" placeholder="Ex.: J. A instalações" required />
+        <label for="c-nome">Nome</label>
+        <input type="text" id="c-nome" placeholder="Ex.: Carlos" required />
 
-        <label for="c-email">E-mail (login dele)</label>
-        <input type="email" id="c-email" placeholder="cliente@exemplo.com" required />
+        <label for="c-sobrenome">Sobrenome</label>
+        <input type="text" id="c-sobrenome" placeholder="Ex.: Silva" required />
+
+        <label for="c-apelido">Apelido da empresa</label>
+        <input type="text" id="c-apelido" placeholder="Ex.: fullnet" required />
+
+        <label for="c-email">E-mail (login) — gerado automaticamente</label>
+        <input type="text" id="c-email" class="auto" readonly placeholder="preencha nome, sobrenome e apelido" />
 
         <label for="c-tel">Telefone / contato</label>
         <input type="tel" id="c-tel" placeholder="(00) 00000-0000" />
 
         <label for="c-senha">Senha inicial</label>
-        <input type="text" id="c-senha" placeholder="mínimo 4 caracteres" required />
+        <input type="text" id="c-senha" value="123456" required />
 
         <label for="c-plano">Plano</label>
         <select id="c-plano">

@@ -11,6 +11,28 @@ function setFormHabilitado(form, on) {
   form.style.opacity = on ? "1" : ".55";
 }
 
+let DOMINIO = "";
+
+function slug(s) {
+  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+// Inicial de todos os nomes + último por inteiro
+function localEmail(nome, sobrenome) {
+  const partes = ((nome || "") + " " + (sobrenome || "")).trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "";
+  if (partes.length === 1) return slug(partes[0]);
+  return partes.slice(0, -1).map((p) => slug(p).slice(0, 1)).join("") + slug(partes[partes.length - 1]);
+}
+function atualizarPreviewEmail() {
+  const lp = localEmail(document.getElementById("tec-nome").value, document.getElementById("tec-sobrenome").value);
+  document.getElementById("tec-email").value = (lp && DOMINIO) ? (lp + "@" + DOMINIO) : "";
+}
+// Divide "Nome completo" em nome (1ª palavra) + sobrenome (resto)
+function splitNome(full) {
+  const p = (full || "").trim().split(/\s+/).filter(Boolean);
+  return { nome: p[0] || "", sobrenome: p.slice(1).join(" ") };
+}
+
 async function getJSON(url) {
   const r = await fetch(url);
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
@@ -30,6 +52,7 @@ async function carregar() {
     if (status === 401) window.location.href = "/";
     return;
   }
+  DOMINIO = data.dominio || "";
 
   // ---- Select de perfis: só perfis PRONTOS (com ≥1 valor > 0), exclui o principal ----
   const sel = document.getElementById("tec-perfil");
@@ -100,22 +123,30 @@ async function carregar() {
   }
 }
 
-// Editar um técnico (inline: nome, e-mail, perfil e senha opcional)
+// Editar um técnico (inline). E-mail fixo/cinza com botão "Redefinir e-mail".
 function modoEdicaoTecnico(li, t, perfis) {
   li.classList.add("editing");
   li.innerHTML = "";
 
+  const partes = splitNome(t.nome);
   const nome = document.createElement("input");
-  nome.className = "edit-input";
-  nome.type = "text";
-  nome.value = t.nome;
-  nome.placeholder = "Nome";
+  nome.className = "edit-input"; nome.type = "text"; nome.value = partes.nome; nome.placeholder = "Nome";
 
+  const sobre = document.createElement("input");
+  sobre.className = "edit-input"; sobre.type = "text"; sobre.value = partes.sobrenome; sobre.placeholder = "Sobrenome";
+
+  const dom = t.email.split("@")[1] || "";
   const email = document.createElement("input");
-  email.className = "edit-input";
-  email.type = "email";
-  email.value = t.email;
-  email.placeholder = "E-mail";
+  email.className = "edit-input auto"; email.type = "text"; email.value = t.email; email.readOnly = true;
+  let regenerar = false;
+  const bRedef = document.createElement("button");
+  bRedef.type = "button"; bRedef.className = "btn-act"; bRedef.textContent = "Redefinir e-mail";
+  bRedef.addEventListener("click", () => {
+    regenerar = true;
+    const lp = localEmail(nome.value, sobre.value); // relê o nome e regenera pela regra de criação
+    email.value = (lp || "?") + "@" + dom; // prévia; nº de conflito é resolvido ao salvar
+    bRedef.textContent = "✓ e-mail será regerado";
+  });
 
   const tel = document.createElement("input");
   tel.className = "edit-input";
@@ -159,10 +190,11 @@ function modoEdicaoTecnico(li, t, perfis) {
   salvar.addEventListener("click", async () => {
     const body = {
       nome: nome.value,
-      email: email.value,
+      sobrenome: sobre.value,
       telefone: tel.value || null,
       perfil_id: sel.value ? Number(sel.value) : null,
     };
+    if (regenerar) body.regenerar_email = true;
     if (senha.value.trim()) body.senha = senha.value;
     const r = await fetch("/api/equipe/" + t.id, {
       method: "PATCH",
@@ -184,7 +216,9 @@ function modoEdicaoTecnico(li, t, perfis) {
   cancelar.addEventListener("click", carregar);
 
   li.appendChild(nome);
+  li.appendChild(sobre);
   li.appendChild(email);
+  li.appendChild(bRedef);
   li.appendChild(tel);
   li.appendChild(sel);
   li.appendChild(senha);
@@ -207,19 +241,24 @@ async function excluirTecnico(t) {
 }
 
 // Adicionar técnico
+document.getElementById("tec-nome").addEventListener("input", atualizarPreviewEmail);
+document.getElementById("tec-sobrenome").addEventListener("input", atualizarPreviewEmail);
+
 document.getElementById("form-tecnico").addEventListener("submit", async (e) => {
   e.preventDefault();
   const perfilVal = document.getElementById("tec-perfil").value;
   const { ok, data } = await postJSON("/api/equipe", {
     nome: document.getElementById("tec-nome").value,
-    email: document.getElementById("tec-email").value,
+    sobrenome: document.getElementById("tec-sobrenome").value,
     telefone: document.getElementById("tec-tel").value || null,
     senha: document.getElementById("tec-senha").value,
     perfil_id: perfilVal ? Number(perfilVal) : null,
   });
   if (ok) {
     document.getElementById("form-tecnico").reset();
-    msg("msg-tecnico", "Técnico adicionado com sucesso!", "ok");
+    document.getElementById("tec-senha").value = "123456";
+    document.getElementById("tec-email").value = "";
+    msg("msg-tecnico", "Técnico criado! Login: " + data.email, "ok");
     carregar();
   } else {
     msg("msg-tecnico", data.erro || "Erro ao adicionar técnico.", "erro");

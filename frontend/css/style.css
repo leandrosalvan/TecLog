@@ -577,6 +577,8 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
   margin: 10px 0;
 }
 .aviso-trava a { color: var(--primary-dark); font-weight: 700; }
+input.auto { background: #eef2f6; color: #64748b; cursor: not-allowed; }
+.email-sufixo { display: inline-block; color: var(--muted); font-weight: 700; font-size: 13.5px; margin: 4px 0 2px; white-space: nowrap; }
 .msg a { color: inherit; font-weight: 800; text-decoration: underline; }
 
 .chk-todos { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }

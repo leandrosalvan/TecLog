@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   limite_tecnicos INTEGER,                        -- máx. de técnicos (NULL = sem limite)
   teste_expira    TEXT,                           -- plano Teste: data/hora em que expira (24h)
   valor_personalizado REAL,                        -- mensalidade custom (plano Personalizado)
+  apelido         TEXT,                            -- apelido da empresa do líder (vira o domínio dos e-mails da equipe)
   ativo           INTEGER NOT NULL DEFAULT 1,     -- 0 = suspenso (somente leitura)
   criado_em       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   FOREIGN KEY (terceirizado_id) REFERENCES usuarios(id),

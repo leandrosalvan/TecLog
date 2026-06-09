@@ -1,6 +1,8 @@
 """TecLog+ — servidor Flask (API + frontend estático)."""
 import os
+import re
 import uuid
+import unicodedata
 from datetime import date, datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, session, send_from_directory, Response
@@ -274,6 +276,43 @@ def arquivos(filename):
 # ----------------------------------------------------------------------------
 # Autenticação
 # ----------------------------------------------------------------------------
+def _slug(s):
+    """minúsculo, sem acento, só letras/números."""
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _dominio_equipe(apelido_ou_nome):
+    """Domínio dos e-mails da equipe, a partir do apelido da empresa: 'FullNet' -> fullnet.teclog"""
+    return (_slug(apelido_ou_nome) or "equipe") + ".teclog"
+
+
+def _local_email(nome, sobrenome):
+    """Parte antes do @: inicial de todos os nomes + último por inteiro. 'João Pedro Silva' -> jpsilva"""
+    partes = [p for p in (str(nome or "") + " " + str(sobrenome or "")).split() if p.strip()]
+    if not partes:
+        return ""
+    if len(partes) == 1:
+        return _slug(partes[0])
+    iniciais = "".join(_slug(p)[:1] for p in partes[:-1])
+    return iniciais + _slug(partes[-1])
+
+
+def _gerar_email_login(conn, apelido_ou_nome, nome, sobrenome, excluir_id=None):
+    """Gera e-mail/login único no padrão da equipe: local@apelido.teclog (jsilva, jsilva2, ...).
+    excluir_id: id de usuário a ignorar na checagem de conflito (pra regenerar o próprio e-mail)."""
+    local = _local_email(nome, sobrenome) or "user"
+    dominio = _dominio_equipe(apelido_ou_nome)
+    email = local + "@" + dominio
+    n = 1
+    while True:
+        r = conn.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone()
+        if r is None or r["id"] == excluir_id:
+            return email
+        n += 1
+        email = local + str(n) + "@" + dominio
+
+
 def _parse_valor(v):
     """Converte um valor monetário (str/num, com vírgula ou ponto) em float ou None."""
     if v is None:
@@ -288,12 +327,12 @@ def _parse_valor(v):
 
 
 def _criar_terceirizado(conn, nome, email, senha, vencimento=None, plano=None, limite=None,
-                        telefone=None, teste_expira=None, valor_personalizado=None):
+                        telefone=None, teste_expira=None, valor_personalizado=None, apelido=None):
     """Cria um terceirizado completo (usuário + perfil principal + classes/valores padrão). Retorna o id."""
     cur = conn.execute(
-        "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, vencimento, plano, limite_tecnicos, teste_expira, valor_personalizado) "
-        "VALUES (?, ?, ?, ?, 'terceirizado', ?, ?, ?, ?, ?)",
-        (nome, email, telefone, generate_password_hash(senha), vencimento, plano, limite, teste_expira, valor_personalizado),
+        "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, vencimento, plano, limite_tecnicos, teste_expira, valor_personalizado, apelido) "
+        "VALUES (?, ?, ?, ?, 'terceirizado', ?, ?, ?, ?, ?, ?)",
+        (nome, email, telefone, generate_password_hash(senha), vencimento, plano, limite, teste_expira, valor_personalizado, apelido),
     )
     terc_id = cur.lastrowid
     cur = conn.execute(
@@ -410,7 +449,7 @@ def api_admin_clientes():
     try:
         clientes = []
         for r in conn.execute(
-            "SELECT u.id, u.nome, u.email, u.telefone, u.ativo, u.vencimento, u.plano, u.limite_tecnicos, u.teste_expira, u.valor_personalizado, u.criado_em, "
+            "SELECT u.id, u.nome, u.email, u.telefone, u.ativo, u.vencimento, u.plano, u.limite_tecnicos, u.teste_expira, u.valor_personalizado, u.apelido, u.criado_em, "
             "(SELECT COUNT(*) FROM usuarios q WHERE q.terceirizado_id = u.id AND q.papel='quarteirizado') AS tecnicos "
             "FROM usuarios u WHERE u.papel='terceirizado' AND u.is_admin = 0 "
             "ORDER BY u.ativo DESC, u.nome"
@@ -434,7 +473,8 @@ def api_admin_clientes():
 def api_admin_criar():
     data = request.get_json(force=True) or {}
     nome = (data.get("nome") or "").strip()
-    email = (data.get("email") or "").strip().lower()
+    sobrenome = (data.get("sobrenome") or "").strip()
+    apelido = (data.get("apelido") or "").strip()
     senha = data.get("senha") or ""
     telefone = (data.get("telefone") or "").strip() or None
     vencimento = (data.get("vencimento") or "").strip() or None
@@ -442,20 +482,22 @@ def api_admin_criar():
     limite = data.get("limite_tecnicos")
     limite = int(limite) if str(limite).isdigit() else None
     valor = _parse_valor(data.get("valor_personalizado")) if (plano or "").strip().lower() == "personalizado" else None
-    if not nome or not email or not senha:
-        return jsonify({"erro": "Preencha nome, e-mail e senha."}), 400
+    if not nome or not sobrenome or not apelido or not senha:
+        return jsonify({"erro": "Preencha nome, sobrenome, apelido da empresa e senha."}), 400
+    if not _slug(apelido):
+        return jsonify({"erro": "Apelido da empresa inválido (use letras ou números)."}), 400
     if len(senha) < 4:
         return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
     conn = get_db()
     try:
-        if conn.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone():
-            return jsonify({"erro": "Já existe uma conta com esse e-mail."}), 409
         teste_expira = None
         if plano and plano.strip().lower() == "teste":
             teste_expira = _mais_24h()
-        _criar_terceirizado(conn, nome, email, senha, vencimento, plano, limite, telefone, teste_expira, valor)
+        email = _gerar_email_login(conn, apelido, nome, sobrenome)
+        nome_completo = (nome + " " + sobrenome).strip()
+        _criar_terceirizado(conn, nome_completo, email, senha, vencimento, plano, limite, telefone, teste_expira, valor, apelido)
         conn.commit()
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "email": email})
     finally:
         conn.close()
 
@@ -472,6 +514,7 @@ def api_admin_editar(cid):
         ).fetchone()
         if not c:
             return jsonify({"erro": "Cliente não encontrado."}), 404
+        email_gerado = None
         if "ativo" in data:
             conn.execute("UPDATE usuarios SET ativo = ? WHERE id = ?", (1 if data["ativo"] else 0, cid))
         if "vencimento" in data:
@@ -499,13 +542,25 @@ def api_admin_editar(cid):
         if "telefone" in data:
             tel = (data.get("telefone") or "").strip() or None
             conn.execute("UPDATE usuarios SET telefone = ? WHERE id = ?", (tel, cid))
-        if data.get("nome"):
-            conn.execute("UPDATE usuarios SET nome = ? WHERE id = ?", (data["nome"].strip(), cid))
-        # mantém o nome do perfil principal igual ao nome do cliente
-        if data.get("nome"):
+        if "apelido" in data:
+            ap = (data.get("apelido") or "").strip()
+            if ap and not _slug(ap):
+                return jsonify({"erro": "Apelido da empresa inválido (use letras ou números)."}), 400
+            conn.execute("UPDATE usuarios SET apelido = ? WHERE id = ?", (ap or None, cid))
+        nome_in = (data.get("nome") or "").strip()
+        sobre_in = (data.get("sobrenome") or "").strip()
+        nome_completo = (nome_in + " " + sobre_in).strip()
+        if nome_completo:
+            conn.execute("UPDATE usuarios SET nome = ? WHERE id = ?", (nome_completo, cid))
+            # mantém o nome do perfil principal igual ao nome do cliente
             dono = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (cid,)).fetchone()
             if dono and dono["perfil_id"]:
-                conn.execute("UPDATE perfis SET descricao = ? WHERE id = ?", (data["nome"].strip(), dono["perfil_id"]))
+                conn.execute("UPDATE perfis SET descricao = ? WHERE id = ?", (nome_completo, dono["perfil_id"]))
+        # Redefinir e-mail = reler nome/sobrenome e regenerar pela regra de criação (com nº no conflito)
+        if data.get("regenerar_email") and nome_in:
+            row = conn.execute("SELECT nome, apelido FROM usuarios WHERE id = ?", (cid,)).fetchone()
+            email_gerado = _gerar_email_login(conn, row["apelido"] or row["nome"], nome_in, sobre_in, excluir_id=cid)
+            conn.execute("UPDATE usuarios SET email = ? WHERE id = ?", (email_gerado, cid))
         if data.get("senha"):
             if len(data["senha"]) < 4:
                 return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
@@ -514,7 +569,7 @@ def api_admin_editar(cid):
                 (generate_password_hash(data["senha"]), cid),
             )
         conn.commit()
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "email": email_gerado})
     finally:
         conn.close()
 
@@ -642,8 +697,9 @@ def api_equipe_listar():
     terc = session["uid"]
     conn = get_db()
     try:
-        owner = conn.execute("SELECT perfil_id FROM usuarios WHERE id = ?", (terc,)).fetchone()
+        owner = conn.execute("SELECT perfil_id, nome, apelido FROM usuarios WHERE id = ?", (terc,)).fetchone()
         principal_id = owner["perfil_id"] if owner else None
+        dominio = _dominio_equipe((owner["apelido"] or owner["nome"]) if owner else "")
 
         prontos = _perfis_prontos_ids(conn, terc)
         perfis = []
@@ -665,7 +721,7 @@ def api_equipe_listar():
             "WHERE u.terceirizado_id = ? AND u.papel = 'quarteirizado' "
             "ORDER BY u.nome", (terc,)
         )]
-        return jsonify({"perfis": perfis, "tecnicos": tecnicos})
+        return jsonify({"perfis": perfis, "tecnicos": tecnicos, "dominio": dominio})
     finally:
         conn.close()
 
@@ -710,23 +766,21 @@ def api_tecnico_criar():
     terc = session["uid"]
     data = request.get_json(force=True) or {}
     nome = (data.get("nome") or "").strip()
-    email = (data.get("email") or "").strip().lower()
+    sobrenome = (data.get("sobrenome") or "").strip()
     senha = data.get("senha") or ""
     telefone = (data.get("telefone") or "").strip() or None
     perfil_id = data.get("perfil_id") or None
     perfil_id = int(perfil_id) if perfil_id else None
 
-    if not nome or not email or not senha:
-        return jsonify({"erro": "Preencha nome, e-mail e senha."}), 400
+    if not nome or not sobrenome:
+        return jsonify({"erro": "Preencha nome e sobrenome."}), 400
     if len(senha) < 4:
         return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
 
     conn = get_db()
     try:
-        if conn.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone():
-            return jsonify({"erro": "Já existe uma conta com esse e-mail."}), 409
         # Limite de técnicos do plano (NULL = sem limite)
-        lim_row = conn.execute("SELECT limite_tecnicos FROM usuarios WHERE id = ?", (terc,)).fetchone()
+        lim_row = conn.execute("SELECT limite_tecnicos, nome, apelido FROM usuarios WHERE id = ?", (terc,)).fetchone()
         limite = lim_row["limite_tecnicos"] if lim_row else None
         if limite is not None:
             atual = conn.execute(
@@ -738,13 +792,16 @@ def api_tecnico_criar():
         erro = _validar_perfil_para_tecnico(conn, terc, perfil_id)
         if erro:
             return jsonify({"erro": erro}), 400
+        # E-mail gerado automaticamente (único) no padrão da equipe do líder
+        email = _gerar_email_login(conn, lim_row["apelido"] or lim_row["nome"], nome, sobrenome)
+        nome_completo = (nome + " " + sobrenome).strip()
         conn.execute(
             "INSERT INTO usuarios (nome, email, telefone, senha_hash, papel, terceirizado_id, perfil_id) "
             "VALUES (?, ?, ?, ?, 'quarteirizado', ?, ?)",
-            (nome, email, telefone, generate_password_hash(senha), terc, perfil_id),
+            (nome_completo, email, telefone, generate_password_hash(senha), terc, perfil_id),
         )
         conn.commit()
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "email": email})
     finally:
         conn.close()
 
@@ -810,14 +867,16 @@ def api_tecnico_editar(tecnico_id):
     terc = session["uid"]
     data = request.get_json(force=True) or {}
     nome = (data.get("nome") or "").strip()
-    email = (data.get("email") or "").strip().lower()
+    sobrenome = (data.get("sobrenome") or "").strip()
     senha = data.get("senha") or ""
     telefone = (data.get("telefone") or "").strip() or None
     perfil_id = data.get("perfil_id") or None
     perfil_id = int(perfil_id) if perfil_id else None
+    regenerar = bool(data.get("regenerar_email"))
+    nome_completo = (nome + " " + sobrenome).strip()
 
-    if not nome or not email:
-        return jsonify({"erro": "Preencha nome e e-mail."}), 400
+    if not nome_completo:
+        return jsonify({"erro": "Preencha nome e sobrenome."}), 400
 
     conn = get_db()
     try:
@@ -827,30 +886,27 @@ def api_tecnico_editar(tecnico_id):
         ).fetchone()
         if not t:
             return jsonify({"erro": "Técnico não encontrado."}), 404
-        dup = conn.execute(
-            "SELECT id FROM usuarios WHERE email = ? AND id <> ?", (email, tecnico_id)
-        ).fetchone()
-        if dup:
-            return jsonify({"erro": "Já existe uma conta com esse e-mail."}), 409
         # Só valida o perfil se está MUDANDO (mantém o atual mesmo que ainda não esteja "pronto")
         if perfil_id != t["perfil_id"]:
             erro = _validar_perfil_para_tecnico(conn, terc, perfil_id)
             if erro:
                 return jsonify({"erro": erro}), 400
+        if senha and len(senha) < 4:
+            return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
+
+        conn.execute("UPDATE usuarios SET nome = ?, telefone = ?, perfil_id = ? WHERE id = ?",
+                     (nome_completo, telefone, perfil_id, tecnico_id))
         if senha:
-            if len(senha) < 4:
-                return jsonify({"erro": "A senha precisa ter pelo menos 4 caracteres."}), 400
-            conn.execute(
-                "UPDATE usuarios SET nome = ?, email = ?, telefone = ?, perfil_id = ?, senha_hash = ? WHERE id = ?",
-                (nome, email, telefone, perfil_id, generate_password_hash(senha), tecnico_id),
-            )
-        else:
-            conn.execute(
-                "UPDATE usuarios SET nome = ?, email = ?, telefone = ?, perfil_id = ? WHERE id = ?",
-                (nome, email, telefone, perfil_id, tecnico_id),
-            )
+            conn.execute("UPDATE usuarios SET senha_hash = ? WHERE id = ?",
+                         (generate_password_hash(senha), tecnico_id))
+        # Redefinir e-mail = reler nome/sobrenome e regenerar pela regra de criação (com nº no conflito)
+        novo_email = None
+        if regenerar:
+            dono = conn.execute("SELECT nome, apelido FROM usuarios WHERE id = ?", (terc,)).fetchone()
+            novo_email = _gerar_email_login(conn, dono["apelido"] or dono["nome"], nome, sobrenome, excluir_id=tecnico_id)
+            conn.execute("UPDATE usuarios SET email = ? WHERE id = ?", (novo_email, tecnico_id))
         conn.commit()
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "email": novo_email})
     finally:
         conn.close()
 
