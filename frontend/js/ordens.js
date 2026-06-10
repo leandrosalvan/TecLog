@@ -73,7 +73,7 @@ async function gerarRelatorioPDF() {
     '<div class="rel-total">Total · ' + lista.length + " O.S. &nbsp;·&nbsp; " + labelValor + ": " + brl(total) + "</div>";
   if (ehLider) {
     rodape +=
-      '<div class="rel-extra">Repasse total às equipes/técnicos: <b>' + brl(data.resumo.repasse_equipe || 0) + "</b></div>" +
+      '<div class="rel-extra">Lucro retido (das equipes/técnicos): <b>' + brl(data.resumo.margem || 0) + "</b></div>" +
       '<div class="rel-extra">Faturamento líquido: <b>' + brl(data.resumo.liquido || 0) + "</b></div>";
   }
   document.getElementById("relatorio-tecnico").innerHTML =
