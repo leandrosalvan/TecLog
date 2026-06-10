@@ -36,9 +36,58 @@ function statCardDuplo(lbl1, val1, lbl2, val2) {
     '<div class="metade"><div class="lbl">' + lbl2 + '</div><div class="val">' + val2 + "</div></div></div>"
   );
 }
+
+// ---- PDF por técnico: abre o mini-modal de período e gera ----
+let TEC_PDF = null;
+
+function abrirModalPdf(tec) {
+  TEC_PDF = tec;
+  document.getElementById("modal-pdf-titulo").textContent = "Relatório · " + tec;
+  document.getElementById("pdf-de").value = document.getElementById("f-de").value;
+  document.getElementById("pdf-ate").value = document.getElementById("f-ate").value;
+  document.getElementById("modal-pdf").style.display = "flex";
+}
+
+function fecharModalPdf() {
+  document.getElementById("modal-pdf").style.display = "none";
+}
+
+// Busca o período escolhido, monta o relatório do técnico e abre a impressão (salvar PDF)
+async function gerarRelatorioPDF() {
+  if (!TEC_PDF) return;
+  const de = document.getElementById("pdf-de").value;
+  const ate = document.getElementById("pdf-ate").value;
+  const r = await fetch("/api/relatorio?de=" + de + "&ate=" + ate);
+  if (!r.ok) return;
+  const data = await r.json();
+  const lista = (data.os || []).filter((o) => o.tecnico === TEC_PDF);
+  const total = lista.reduce((s, o) => s + (Number(o.valor_repasse) || 0), 0);
+  const linhas = lista.map((o) =>
+    "<tr><td>" + o.cliente + "</td><td>" + dataBRfull(o.data_execucao) + "</td><td>" + o.classe +
+    "</td><td>" + brl(o.valor_repasse) + "</td><td>" + (o.sinalizada ? "⚠ Repetida" : "") + "</td></tr>"
+  ).join("");
+  document.getElementById("relatorio-tecnico").innerHTML =
+    '<div class="rel-head">' +
+      '<div class="rel-logo">TecLog<span>+</span></div>' +
+      '<div class="rel-titulo">Relatório do Técnico</div>' +
+      '<div class="rel-meta"><span><b>Técnico:</b> ' + TEC_PDF + "</span>" +
+      '<span><b>Período:</b> ' + dataBRfull(data.de) + " a " + dataBRfull(data.ate) + "</span></div>" +
+    "</div>" +
+    '<table class="rel-tab"><thead><tr><th>Cliente</th><th>Data</th><th>Tipo de Atividade</th><th>Repasse</th><th>Repetida</th></tr></thead><tbody>' +
+    (linhas || '<tr><td colspan="5">Nenhuma O.S. no período.</td></tr>') +
+    "</tbody></table>" +
+    '<div class="rel-total">Total · ' + lista.length + " O.S. &nbsp;·&nbsp; Repasse: " + brl(total) + "</div>";
+  fecharModalPdf();
+  document.title = "Relatorio - " + TEC_PDF;
+  document.body.classList.add("printing-tecnico");
+  window.print();
+  document.body.classList.remove("printing-tecnico");
+  document.title = "TecLog+ · Relatório de Ganhos";
+}
 let ULTIMO = null;
 let SELECIONADOS = null; // Set de nomes de técnicos visíveis (null = todos)
 const LIMITE_OS = 5;     // qtd mostrada no resumo (o resto abre no modal)
+const LIMITE_TEC = 5;    // técnicos na prévia (o resto abre no modal)
 
 function render(data) {
   ULTIMO = data;
@@ -68,64 +117,99 @@ function render(data) {
     blocoTec.style.display = "none";
   }
 
-  document.getElementById("bloco-reajuste").style.display =
-    data.papel === "terceirizado" ? "" : "none";
-
   renderListaOS(data);
 }
 
-// "Por técnico": cada técnico com checkbox (marca = mostra, desmarca = esconde)
+// Monta um <li> de técnico (checkbox de filtro + repasse + ícone PDF)
+function tecLi(t) {
+  const li = document.createElement("li");
+  li.className = "list-item";
+  const marcado = !SELECIONADOS || SELECIONADOS.has(t.tecnico);
+  if (!marcado) li.style.opacity = ".5";
+
+  const lab = document.createElement("label");
+  lab.className = "li-info chk-tec";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = marcado;
+  cb.dataset.tec = t.tecnico;
+  cb.addEventListener("change", () => onTecToggle(t.tecnico, cb.checked));
+  const span = document.createElement("span");
+  span.innerHTML =
+    '<div class="li-main">' + t.tecnico + "</div>" +
+    '<div class="li-sub">' + t.qtd + " O.S.</div>";
+  lab.appendChild(cb);
+  lab.appendChild(span);
+
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = brl(t.repasse);
+
+  const bPdf = document.createElement("button");
+  bPdf.className = "btn-act";
+  bPdf.textContent = "📄";
+  bPdf.title = "Gerar PDF deste técnico";
+  bPdf.addEventListener("click", () => abrirModalPdf(t.tecnico));
+
+  const right = document.createElement("div");
+  right.className = "li-actions";
+  right.appendChild(tag);
+  right.appendChild(bPdf);
+
+  li.appendChild(lab);
+  li.appendChild(right);
+  return li;
+}
+
+// "Por técnico": prévia com LIMITE_TEC; "Ver mais" abre todos no modal
 function renderResumoTecnicos(data) {
   const ul = document.getElementById("lista-tecnicos");
   const todos = document.getElementById("tec-todos");
+  const exp = document.getElementById("tec-expandir");
   ul.innerHTML = "";
+  exp.innerHTML = "";
 
-  if (data.resumo.por_tecnico.length === 0) {
+  const tecs = data.resumo.por_tecnico;
+  if (tecs.length === 0) {
     ul.innerHTML = '<li class="empty">Nenhuma O.S. no período.</li>';
     todos.parentElement.style.display = "none";
     return;
   }
   todos.parentElement.style.display = "";
-  todos.checked = true;
+  if (!SELECIONADOS) SELECIONADOS = new Set(tecs.map((t) => t.tecnico));
+  todos.checked = tecs.every((t) => SELECIONADOS.has(t.tecnico));
 
-  data.resumo.por_tecnico.forEach((t) => {
-    const li = document.createElement("li");
-    li.className = "list-item";
+  tecs.slice(0, LIMITE_TEC).forEach((t) => ul.appendChild(tecLi(t)));
 
-    const lab = document.createElement("label");
-    lab.className = "li-info chk-tec";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = true;
-    cb.dataset.tec = t.tecnico;
-    cb.addEventListener("change", onTecChange);
-    const span = document.createElement("span");
-    span.innerHTML =
-      '<div class="li-main">' + t.tecnico + "</div>" +
-      '<div class="li-sub">' + t.qtd + " O.S.</div>";
-    lab.appendChild(cb);
-    lab.appendChild(span);
-
-    const tag = document.createElement("span");
-    tag.className = "tag";
-    tag.textContent = brl(t.repasse);
-
-    li.appendChild(lab);
-    li.appendChild(tag);
-    ul.appendChild(li);
-  });
+  if (tecs.length > LIMITE_TEC) {
+    const btn = document.createElement("button");
+    btn.className = "btn-expandir";
+    btn.textContent = "▼ Ver mais (" + tecs.length + ")";
+    btn.addEventListener("click", abrirModalTec);
+    exp.appendChild(btn);
+  }
 }
 
-function checkboxesTec() {
-  return Array.from(document.querySelectorAll("#lista-tecnicos input[type=checkbox]"));
-}
-
-function onTecChange() {
-  const cbs = checkboxesTec();
-  SELECIONADOS = new Set(cbs.filter((c) => c.checked).map((c) => c.dataset.tec));
-  cbs.forEach((c) => { c.closest(".list-item").style.opacity = c.checked ? "1" : ".5"; });
-  document.getElementById("tec-todos").checked = cbs.length > 0 && cbs.every((c) => c.checked);
+function onTecToggle(tec, checked) {
+  if (!SELECIONADOS) SELECIONADOS = new Set(ULTIMO.resumo.por_tecnico.map((t) => t.tecnico));
+  if (checked) SELECIONADOS.add(tec); else SELECIONADOS.delete(tec);
+  renderResumoTecnicos(ULTIMO);
+  if (document.getElementById("modal-tec").style.display !== "none") renderModalTec();
   renderListaOS(ULTIMO);
+}
+
+// Modal com TODOS os técnicos (mesmos checkboxes/ícones da prévia)
+function abrirModalTec() {
+  renderModalTec();
+  document.getElementById("modal-tec").style.display = "flex";
+}
+function fecharModalTec() {
+  document.getElementById("modal-tec").style.display = "none";
+}
+function renderModalTec() {
+  const ul = document.getElementById("modal-tec-lista");
+  ul.innerHTML = "";
+  (ULTIMO.resumo.por_tecnico || []).forEach((t) => ul.appendChild(tecLi(t)));
 }
 
 // Monta um item <li> de O.S.
@@ -250,27 +334,28 @@ document.querySelectorAll("[data-atalho]").forEach((b) => {
 
 document.getElementById("btn-filtrar").addEventListener("click", carregarCustom);
 
-// Reajustar valores das O.S. pelo perfil atual de cada técnico
-document.getElementById("btn-reajustar").addEventListener("click", async () => {
-  if (!confirm("Reajustar os valores de TODAS as O.S. com base no perfil atual de cada técnico e na tabela de valores atual?\n\nIsso atualiza os relatórios.")) return;
-  const el = document.getElementById("msg-reajuste");
-  el.textContent = "Reajustando…"; el.className = "msg show ok";
-  const r = await fetch("/api/os/reajustar", { method: "POST" });
-  const d = await r.json().catch(() => ({}));
-  if (r.ok) {
-    el.textContent = "✅ " + d.atualizadas + " O.S. reajustadas pelo perfil atual.";
-    el.className = "msg show ok";
-    recarregar();
-  } else {
-    el.textContent = d.erro || "Erro ao reajustar.";
-    el.className = "msg show erro";
-  }
+// Mini-modal de PDF por técnico
+document.getElementById("pdf-gerar").addEventListener("click", gerarRelatorioPDF);
+document.getElementById("pdf-cancelar").addEventListener("click", fecharModalPdf);
+document.getElementById("modal-pdf-fechar").addEventListener("click", fecharModalPdf);
+document.getElementById("modal-pdf").addEventListener("click", (e) => {
+  if (e.target.id === "modal-pdf") fecharModalPdf();
 });
 
 // Selecionar/desmarcar todos os técnicos
 document.getElementById("tec-todos").addEventListener("change", function () {
-  checkboxesTec().forEach((c) => { c.checked = this.checked; });
-  onTecChange();
+  const tecs = (ULTIMO && ULTIMO.resumo.por_tecnico) || [];
+  SELECIONADOS = this.checked ? new Set(tecs.map((t) => t.tecnico)) : new Set();
+  renderResumoTecnicos(ULTIMO);
+  if (document.getElementById("modal-tec").style.display !== "none") renderModalTec();
+  renderListaOS(ULTIMO);
+});
+
+// Modal "Por técnico"
+document.getElementById("modal-tec-fechar").addEventListener("click", fecharModalTec);
+document.getElementById("modal-tec-vermenos").addEventListener("click", fecharModalTec);
+document.getElementById("modal-tec").addEventListener("click", (e) => {
+  if (e.target.id === "modal-tec") fecharModalTec();
 });
 
 // Modal da lista completa de O.S.

@@ -631,10 +631,32 @@ input.auto { background: #eef2f6; color: #64748b; cursor: not-allowed; }
 }
 .modal-lista .modal-foot .btn { margin-top: 0; width: 100%; }
 
+/* Relatório do técnico (PDF/impressão) */
+#relatorio-tecnico { display: none; }
+.rel-head { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 14px; }
+.rel-logo { font-size: 26px; font-weight: 800; color: var(--primary-dark); letter-spacing: -.5px; }
+.rel-logo span { color: var(--accent); }
+.rel-titulo { font-size: 15px; font-weight: 700; color: #334155; margin-top: 2px; }
+.rel-meta { margin-top: 8px; font-size: 13px; color: #444; display: flex; gap: 24px; flex-wrap: wrap; }
+.rel-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rel-tab th, .rel-tab td { border: 1px solid #ccc; padding: 7px 9px; text-align: left; }
+.rel-tab thead th { background: var(--primary-dark); color: #fff; font-size: 12px; }
+.rel-tab td:nth-child(4), .rel-tab th:nth-child(4) { text-align: right; }
+.rel-total { margin-top: 10px; padding: 8px 10px; text-align: right; font-size: 14px; font-weight: 800; background: #f1f5f9; border: 1px solid #ccc; border-top: 0; }
+
 @media print {
   body * { visibility: hidden; }
-  #area-relatorio, #area-relatorio * { visibility: visible; }
-  #area-relatorio { position: absolute; left: 0; top: 0; width: 100%; }
+  #area-relatorio, #area-relatorio *, #relatorio-tecnico, #relatorio-tecnico * { visibility: visible; }
+  #area-relatorio, #relatorio-tecnico { position: absolute; left: 0; top: 0; right: 0; width: 100%; box-sizing: border-box; }
+  #relatorio-tecnico { display: block; }
+  /* Relatório do técnico: fluxo normal (não fatia linhas na quebra de página) */
+  body.printing-tecnico .topbar,
+  body.printing-tecnico .modal-overlay,
+  body.printing-tecnico .container > *:not(#relatorio-tecnico) { display: none !important; }
+  body.printing-tecnico .container { max-width: none; margin: 0; padding: 0; }
+  body.printing-tecnico #relatorio-tecnico { position: static; }
+  .rel-tab tr { break-inside: avoid; page-break-inside: avoid; }
+  .rel-tab thead { display: table-header-group; }
   .no-print { display: none !important; }
   .print-header { display: block !important; margin-bottom: 14px; }
   .print-header .ph-titulo { font-size: 18px; font-weight: 800; }

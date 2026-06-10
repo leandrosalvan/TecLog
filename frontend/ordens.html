@@ -21,6 +21,17 @@
     <!-- Resumo / relatório de ganhos (topo) -->
     <div class="stats" id="resumo"></div>
 
+    <!-- Por técnico (só dono) -->
+    <div class="section" id="bloco-tecnicos" style="display:none">
+      <div class="classe-head">
+        <h3>Por técnico</h3>
+        <label class="chk-todos"><input type="checkbox" id="tec-todos" checked /> Selecionar todos</label>
+      </div>
+      <p class="hint">Marque para mostrar, desmarque para esconder as O.S. do técnico na lista abaixo.</p>
+      <ul class="list" id="lista-tecnicos"></ul>
+      <div id="tec-expandir" class="ver-mais"></div>
+    </div>
+
     <!-- Filtro de período -->
     <div class="section">
       <div class="filtro-row">
@@ -36,23 +47,6 @@
       <p class="periodo-aplicado" id="periodo-aplicado"></p>
     </div>
 
-    <!-- Reajuste de valores (só líder) -->
-    <div class="section no-print" id="bloco-reajuste" style="display:none">
-      <button class="btn-act editar" id="btn-reajustar">🔄 Reajustar valores (perfil atual)</button>
-      <p class="hint">Recalcula os valores de TODAS as O.S. pelo perfil atual de cada técnico e pela tabela de valores atual. Use depois de corrigir o perfil de um técnico.</p>
-      <div id="msg-reajuste" class="msg"></div>
-    </div>
-
-    <!-- Por técnico (só dono) -->
-    <div class="section" id="bloco-tecnicos" style="display:none">
-      <div class="classe-head">
-        <h3>Por técnico</h3>
-        <label class="chk-todos"><input type="checkbox" id="tec-todos" checked /> Selecionar todos</label>
-      </div>
-      <p class="hint">Marque para mostrar, desmarque para esconder as O.S. do técnico na lista abaixo.</p>
-      <ul class="list" id="lista-tecnicos"></ul>
-    </div>
-
     <!-- Lista de O.S. -->
     <div class="section">
       <h3 id="titulo-lista">O.S. no período</h3>
@@ -60,6 +54,41 @@
       <div id="os-expandir" class="ver-mais"></div>
     </div>
 
+    <!-- Relatório do técnico (visível só na impressão/PDF) -->
+    <div id="relatorio-tecnico"></div>
+  </div>
+
+  <!-- Modal: todos os técnicos -->
+  <div class="modal-overlay" id="modal-tec" style="display:none">
+    <div class="modal modal-lista">
+      <div class="modal-head">
+        <h3>Por técnico</h3>
+        <button class="modal-x" id="modal-tec-fechar">✕</button>
+      </div>
+      <ul class="list lista-scroll" id="modal-tec-lista"></ul>
+      <div class="modal-foot">
+        <button class="btn" id="modal-tec-vermenos">▲ Ver menos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mini-modal: período do PDF por técnico -->
+  <div class="modal-overlay" id="modal-pdf" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modal-pdf-titulo">Relatório do técnico</h3>
+        <button class="modal-x" id="modal-pdf-fechar">✕</button>
+      </div>
+      <p class="modal-sub">Escolha o período do relatório.</p>
+      <div class="filtro-row">
+        <div class="campo"><label for="pdf-de">De</label><input type="date" id="pdf-de" /></div>
+        <div class="campo"><label for="pdf-ate">Até</label><input type="date" id="pdf-ate" /></div>
+      </div>
+      <div class="modal-acts">
+        <button class="btn" id="pdf-gerar">📄 Gerar</button>
+        <button class="btn-act" id="pdf-cancelar">Cancelar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal: lista completa de O.S. -->

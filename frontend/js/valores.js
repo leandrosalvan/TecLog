@@ -307,6 +307,22 @@ document.getElementById("form-perfil").addEventListener("submit", async (e) => {
   }
 });
 
+// Reajustar valores das O.S. já lançadas (perfil atual + valores atuais)
+document.getElementById("btn-reajustar").addEventListener("click", async () => {
+  if (!confirm("Reajustar os valores de TODAS as O.S. já lançadas com base no perfil atual de cada técnico e na tabela de valores atual?\n\nIsso atualiza os relatórios.")) return;
+  const el = document.getElementById("msg-reajuste");
+  el.textContent = "Reajustando…"; el.className = "msg show ok";
+  const r = await fetch("/api/os/reajustar", { method: "POST" });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    el.textContent = "✅ " + d.atualizadas + " O.S. reajustadas pelo perfil atual.";
+    el.className = "msg show ok";
+  } else {
+    el.textContent = d.erro || "Erro ao reajustar.";
+    el.className = "msg show erro";
+  }
+});
+
 document.getElementById("btn-sair").addEventListener("click", async () => {
   await fetch("/api/logout", { method: "POST" });
   window.location.href = "/";
