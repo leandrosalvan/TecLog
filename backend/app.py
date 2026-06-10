@@ -1030,10 +1030,14 @@ def api_valores_listar():
     terc = session["uid"]
     conn = get_db()
     try:
-        classes = [dict(r) for r in conn.execute(
-            "SELECT id, nome FROM classes_servico WHERE terceirizado_id = ? AND ativo = 1 ORDER BY id",
+        classes = []
+        for r in conn.execute(
+            "SELECT id, nome, adicional_domingo FROM classes_servico WHERE terceirizado_id = ? AND ativo = 1 ORDER BY id",
             (terc,)
-        )]
+        ):
+            d = dict(r)
+            d["adicional_domingo"] = float(r["adicional_domingo"]) if r["adicional_domingo"] is not None else 0.0
+            classes.append(d)
         perfis = _perfis_ordenados(conn, terc)
         matriz = {}
         for r in conn.execute(
@@ -1054,12 +1058,15 @@ def api_classe_criar():
     terc = session["uid"]
     data = request.get_json(force=True) or {}
     nome = (data.get("nome") or "").strip()
+    adc = _parse_valor(data.get("adicional_domingo")) or 0
+    if adc < 0:
+        adc = 0
     if not nome:
         return jsonify({"erro": "Dê um nome à classe de serviço."}), 400
     conn = get_db()
     try:
         cur = conn.execute(
-            "INSERT INTO classes_servico (terceirizado_id, nome) VALUES (?, ?)", (terc, nome)
+            "INSERT INTO classes_servico (terceirizado_id, nome, adicional_domingo) VALUES (?, ?, ?)", (terc, nome, adc)
         )
         classe_id = cur.lastrowid
         for p in conn.execute(
@@ -1092,6 +1099,11 @@ def api_classe_editar(classe_id):
         if not c:
             return jsonify({"erro": "Classe não encontrada."}), 404
         conn.execute("UPDATE classes_servico SET nome = ? WHERE id = ?", (nome, classe_id))
+        if "adicional_domingo" in data:
+            adc = _parse_valor(data.get("adicional_domingo")) or 0
+            if adc < 0:
+                adc = 0
+            conn.execute("UPDATE classes_servico SET adicional_domingo = ? WHERE id = ?", (adc, classe_id))
         conn.commit()
         return jsonify({"ok": True})
     finally:
@@ -1195,6 +1207,18 @@ def _valor_de(conn, classe_id, perfil_id):
     return r["valor"] if r else 0
 
 
+def _eh_domingo(data_str):
+    try:
+        return date.fromisoformat((data_str or "")[:10]).weekday() == 6
+    except (TypeError, ValueError):
+        return False
+
+
+def _adicional_domingo(conn, classe_id):
+    r = conn.execute("SELECT adicional_domingo FROM classes_servico WHERE id = ?", (classe_id,)).fetchone()
+    return float(r["adicional_domingo"]) if r and r["adicional_domingo"] is not None else 0.0
+
+
 def _get_or_create_cliente(conn, dono_id, nome, tipo):
     cli = conn.execute(
         "SELECT id FROM clientes WHERE terceirizado_id = ? AND lower(nome) = lower(?)",
@@ -1265,6 +1289,11 @@ def api_os_criar():
         if not valor_repasse or valor_repasse <= 0:
             nome_cls = conn.execute("SELECT nome FROM classes_servico WHERE id = ?", (classe_id,)).fetchone()["nome"]
             return jsonify({"erro": _erro_valor_zero(ctx["papel"], nome_cls)}), 400
+        # Adicional de domingo (entra no repasse e no faturamento)
+        if _eh_domingo(data_exec):
+            adc = _adicional_domingo(conn, classe_id)
+            valor_repasse = float(valor_repasse or 0) + adc
+            valor_cheio = float(valor_cheio or 0) + adc
 
         cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         conn.execute(
@@ -1338,6 +1367,10 @@ def api_os_editar(os_id):
         if not valor_repasse or valor_repasse <= 0:
             nome_cls = conn.execute("SELECT nome FROM classes_servico WHERE id = ?", (classe_id,)).fetchone()["nome"]
             return jsonify({"erro": _erro_valor_zero(ctx["papel"], nome_cls)}), 400
+        if _eh_domingo(data_exec):
+            adc = _adicional_domingo(conn, classe_id)
+            valor_repasse = float(valor_repasse or 0) + adc
+            valor_cheio = float(valor_cheio or 0) + adc
 
         cliente_id = _get_or_create_cliente(conn, dono_id, cliente_nome, None)
         conn.execute(
@@ -1392,13 +1425,21 @@ def api_os_reajustar():
         perfil_de = {}
         for r in conn.execute("SELECT id, perfil_id FROM usuarios WHERE id = ? OR terceirizado_id = ?", (terc, terc)):
             perfil_de[r["id"]] = r["perfil_id"]
+        # Adicional de domingo por classe
+        adc_de = {}
+        for r in conn.execute("SELECT id, adicional_domingo FROM classes_servico WHERE terceirizado_id = ?", (terc,)):
+            adc_de[r["id"]] = float(r["adicional_domingo"]) if r["adicional_domingo"] is not None else 0.0
         oss = [dict(r) for r in conn.execute(
-            "SELECT id, tecnico_id, classe_id FROM ordens_servico WHERE terceirizado_id = ?", (terc,))]
+            "SELECT id, tecnico_id, classe_id, data_execucao FROM ordens_servico WHERE terceirizado_id = ?", (terc,))]
         n = 0
         for o in oss:
             pf = perfil_de.get(o["tecnico_id"])
-            vr = matriz.get((o["classe_id"], pf), 0) or 0
-            vc = matriz.get((o["classe_id"], principal), 0) or 0
+            vr = float(matriz.get((o["classe_id"], pf), 0) or 0)
+            vc = float(matriz.get((o["classe_id"], principal), 0) or 0)
+            if _eh_domingo(o["data_execucao"]):
+                adc = adc_de.get(o["classe_id"], 0.0)
+                vr += adc
+                vc += adc
             conn.execute("UPDATE ordens_servico SET valor_repasse = ?, valor_cheio = ? WHERE id = ?",
                          (vr, vc, o["id"]))
             n += 1
@@ -1452,7 +1493,9 @@ def api_relatorio():
             )]
             bruto = sum((r["valor_cheio"] or 0) for r in rows)
             repasse_equipe = sum((r["valor_repasse"] or 0) for r in rows if not r["eh_dono"])
-            margem = bruto - repasse_equipe
+            # Margem (lucro do líder) = soma da diferença (cheio − repasse) por O.S.
+            # A O.S. feita pelo próprio líder dá margem 0 (cheio = repasse do seu perfil).
+            margem = sum((r["valor_cheio"] or 0) - (r["valor_repasse"] or 0) for r in rows)
             por = {}
             for r in rows:
                 t = r["tecnico"]
@@ -1464,6 +1507,8 @@ def api_relatorio():
                 "bruto": bruto,
                 "repasse_equipe": repasse_equipe,
                 "margem": margem,
+                "liquido": bruto - repasse_equipe,  # o que sobra pro líder (próprio cheio + margem)
+                "sinalizadas": sum(1 for r in rows if r["sinalizada"]),
                 "por_tecnico": sorted(por.values(), key=lambda x: -x["repasse"]),
             }
         else:

@@ -396,6 +396,8 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 .valor-input:focus { outline: none; }
 .valor-view { font-size: 15px; font-weight: 700; color: var(--ink); }
 .valor-view.zero { color: #b45309; font-weight: 600; }
+.dom-row { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 10px; }
+.dom-hint { color: var(--muted); font-weight: 400; font-size: 12px; }
 #btn-salvar { position: sticky; bottom: 12px; box-shadow: var(--shadow); }
 
 /* Relatório (Ordens de Serviço) */
@@ -538,6 +540,9 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 .stat.destaque { background: var(--primary-dark); border-color: var(--primary-dark); }
 .stat.destaque .lbl { color: #d1fae5; }
 .stat.destaque .val { color: #fff; }
+.stat-duplo { display: flex; align-items: center; }
+.stat-duplo .metade { flex: 1; min-width: 0; }
+.stat-duplo .metade + .metade { border-left: 1px solid var(--line); padding-left: 12px; margin-left: 12px; }
 
 /* ── Finanças: fluxo de caixa ── */
 .fluxo-controls {

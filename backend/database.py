@@ -114,6 +114,7 @@ def init_db():
         # Migrações leves no Postgres (colunas adicionadas após o 1º deploy)
         conn.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS valor_personalizado NUMERIC")
         conn.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS apelido TEXT")
+        conn.execute("ALTER TABLE classes_servico ADD COLUMN IF NOT EXISTS adicional_domingo NUMERIC NOT NULL DEFAULT 0")
         conn.commit()
         conn.close()
         return
@@ -146,6 +147,10 @@ def init_db():
         conn.execute("ALTER TABLE usuarios ADD COLUMN valor_personalizado REAL")
     if "apelido" not in cols_u:
         conn.execute("ALTER TABLE usuarios ADD COLUMN apelido TEXT")
+
+    cols_cs = [r["name"] for r in conn.execute("PRAGMA table_info(classes_servico)")]
+    if "adicional_domingo" not in cols_cs:
+        conn.execute("ALTER TABLE classes_servico ADD COLUMN adicional_domingo REAL NOT NULL DEFAULT 0")
 
     cols_os = [r["name"] for r in conn.execute("PRAGMA table_info(ordens_servico)")]
     novas = {

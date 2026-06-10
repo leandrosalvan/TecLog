@@ -28,6 +28,14 @@ function statCard(lbl, val, destaque) {
     '<div class="val">' + val + "</div></div>"
   );
 }
+// Card dividido em duas métricas (ex.: Total de O.S. | Sinalizadas)
+function statCardDuplo(lbl1, val1, lbl2, val2) {
+  return (
+    '<div class="stat stat-duplo">' +
+    '<div class="metade"><div class="lbl">' + lbl1 + '</div><div class="val">' + val1 + "</div></div>" +
+    '<div class="metade"><div class="lbl">' + lbl2 + '</div><div class="val">' + val2 + "</div></div></div>"
+  );
+}
 let ULTIMO = null;
 let SELECIONADOS = null; // Set de nomes de técnicos visíveis (null = todos)
 const LIMITE_OS = 5;     // qtd mostrada no resumo (o resto abre no modal)
@@ -48,8 +56,8 @@ function render(data) {
     resumo.innerHTML =
       statCard("Faturamento (bruto)", brl(data.resumo.bruto)) +
       statCard("Repasse à equipe", brl(data.resumo.repasse_equipe)) +
-      statCard("Sua margem", brl(data.resumo.margem), true) +
-      statCard("Total de O.S.", data.resumo.qtd);
+      statCard("Faturamento (líquido)", brl(data.resumo.liquido), true) +
+      statCardDuplo("Total de O.S.", data.resumo.qtd, "Sinalizadas", data.resumo.sinalizadas);
     renderResumoTecnicos(data);
     blocoTec.style.display = "block";
   } else {

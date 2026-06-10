@@ -134,6 +134,17 @@ function buildClasseCard(cls, perfis, valoresClasse) {
       row.appendChild(lab); row.appendChild(view);
       card.appendChild(row);
     });
+
+    const domV = Number(cls.adicional_domingo) || 0;
+    const rowDom = document.createElement("div");
+    rowDom.className = "valor-row dom-row";
+    const labDom = document.createElement("label");
+    labDom.innerHTML = '🗓️ Domingo <span class="dom-hint">(extra por tarefa)</span>';
+    const viewDom = document.createElement("div");
+    viewDom.className = "valor-view" + (domV ? "" : " zero");
+    viewDom.textContent = "+R$ " + fmtVal(domV);
+    rowDom.appendChild(labDom); rowDom.appendChild(viewDom);
+    card.appendChild(rowDom);
   }
 
   // ---- Modo edição (nome + valores; setas de R$5) ----
@@ -165,23 +176,35 @@ function buildClasseCard(cls, perfis, valoresClasse) {
       card.appendChild(row);
     });
 
+    // adicional de domingo (extra por tarefa, vale pra classe inteira)
+    const rowDom = document.createElement("div");
+    rowDom.className = "valor-row dom-row";
+    const labDom = document.createElement("label");
+    labDom.innerHTML = '🗓️ Domingo <span class="dom-hint">(extra por tarefa)</span>';
+    const fieldDom = document.createElement("div");
+    fieldDom.className = "valor-field";
+    const cifraDom = document.createElement("span"); cifraDom.textContent = "+R$";
+    const domInp = document.createElement("input");
+    domInp.type = "number"; domInp.step = "5"; domInp.min = "0"; domInp.className = "valor-input";
+    domInp.value = cls.adicional_domingo != null ? cls.adicional_domingo : 0;
+    fieldDom.appendChild(cifraDom); fieldDom.appendChild(domInp);
+    rowDom.appendChild(labDom); rowDom.appendChild(fieldDom);
+    card.appendChild(rowDom);
+
     const acts = document.createElement("div");
     acts.className = "li-actions"; acts.style.marginTop = "10px";
     const bSave = document.createElement("button");
     bSave.className = "btn-act salvar"; bSave.textContent = "Salvar";
     bSave.addEventListener("click", async () => {
-      // 1) nome da classe (se mudou)
-      const novoNome = nomeInp.value.trim();
-      if (novoNome && novoNome !== cls.nome) {
-        const rn = await fetch("/api/classes/" + cls.id, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nome: novoNome }),
-        });
-        if (!rn.ok) {
-          const d = await rn.json().catch(() => ({}));
-          msg("msg-valores", d.erro || "Erro ao salvar o nome da classe.", "erro");
-          return;
-        }
+      // 1) nome + adicional de domingo da classe
+      const rn = await fetch("/api/classes/" + cls.id, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: nomeInp.value.trim() || cls.nome, adicional_domingo: domInp.value || 0 }),
+      });
+      if (!rn.ok) {
+        const d = await rn.json().catch(() => ({}));
+        msg("msg-valores", d.erro || "Erro ao salvar a classe.", "erro");
+        return;
       }
       // 2) valores da classe
       const valores = inputs.map((inp) => ({

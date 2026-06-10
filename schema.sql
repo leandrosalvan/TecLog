@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS classes_servico (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   terceirizado_id INTEGER NOT NULL,
   nome            TEXT NOT NULL,                 -- INSTALAÇÃO, SUPORTE, DEVICES...
+  adicional_domingo REAL NOT NULL DEFAULT 0,     -- valor extra por O.S. executada em domingo
   ativo           INTEGER NOT NULL DEFAULT 1,
   FOREIGN KEY (terceirizado_id) REFERENCES usuarios(id)
 );

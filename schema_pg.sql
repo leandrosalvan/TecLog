@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS classes_servico (
   id              SERIAL PRIMARY KEY,
   terceirizado_id INTEGER NOT NULL,
   nome            TEXT NOT NULL,
+  adicional_domingo NUMERIC NOT NULL DEFAULT 0,
   ativo           INTEGER NOT NULL DEFAULT 1
 );
 
