@@ -61,22 +61,32 @@ async function gerarRelatorioPDF() {
   if (!r.ok) return;
   const data = await r.json();
   const lista = (data.os || []).filter((o) => o.tecnico === TEC_PDF);
+  const ehLider = lista.some((o) => o.eh_dono);   // O.S. do próprio líder (dono)
   const total = lista.reduce((s, o) => s + (Number(o.valor_repasse) || 0), 0);
+  const labelValor = ehLider ? "Valor" : "Repasse";
+  const papelTxt = ehLider ? "Líder" : "Técnico";
   const linhas = lista.map((o) =>
     "<tr><td>" + o.cliente + "</td><td>" + dataBRfull(o.data_execucao) + "</td><td>" + o.classe +
     "</td><td>" + brl(o.valor_repasse) + "</td><td>" + (o.sinalizada ? "⚠ Repetida" : "") + "</td></tr>"
   ).join("");
+  let rodape =
+    '<div class="rel-total">Total · ' + lista.length + " O.S. &nbsp;·&nbsp; " + labelValor + ": " + brl(total) + "</div>";
+  if (ehLider) {
+    rodape +=
+      '<div class="rel-extra">Repasse total às equipes/técnicos: <b>' + brl(data.resumo.repasse_equipe || 0) + "</b></div>" +
+      '<div class="rel-extra">Faturamento líquido: <b>' + brl(data.resumo.liquido || 0) + "</b></div>";
+  }
   document.getElementById("relatorio-tecnico").innerHTML =
     '<div class="rel-head">' +
       '<div class="rel-logo">TecLog<span>+</span></div>' +
-      '<div class="rel-titulo">Relatório do Técnico</div>' +
-      '<div class="rel-meta"><span><b>Técnico:</b> ' + TEC_PDF + "</span>" +
+      '<div class="rel-titulo">Relatório do ' + papelTxt + "</div>" +
+      '<div class="rel-meta"><span><b>' + papelTxt + ":</b> " + TEC_PDF + "</span>" +
       '<span><b>Período:</b> ' + dataBRfull(data.de) + " a " + dataBRfull(data.ate) + "</span></div>" +
     "</div>" +
-    '<table class="rel-tab"><thead><tr><th>Cliente</th><th>Data</th><th>Tipo de Atividade</th><th>Repasse</th><th>Repetida</th></tr></thead><tbody>' +
+    '<table class="rel-tab"><thead><tr><th>Cliente</th><th>Data</th><th>Tipo de Atividade</th><th>' + labelValor + '</th><th>Repetida</th></tr></thead><tbody>' +
     (linhas || '<tr><td colspan="5">Nenhuma O.S. no período.</td></tr>') +
     "</tbody></table>" +
-    '<div class="rel-total">Total · ' + lista.length + " O.S. &nbsp;·&nbsp; Repasse: " + brl(total) + "</div>";
+    rodape;
   fecharModalPdf();
   document.title = "Relatorio - " + TEC_PDF;
   document.body.classList.add("printing-tecnico");
