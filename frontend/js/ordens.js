@@ -280,6 +280,17 @@ function osLi(o, papel) {
     right.appendChild(editar);
   }
 
+  // Editar: o líder só edita as próprias O.S. (eh_dono); o técnico edita as suas.
+  const podeEditar = papel !== "terceirizado" || o.eh_dono;
+  if (podeEditar) {
+    const editar = document.createElement("button");
+    editar.className = "btn-act";
+    editar.textContent = "✏️";
+    editar.title = "Editar O.S.";
+    editar.addEventListener("click", () => modoEdicaoOS(li, o));
+    right.appendChild(editar);
+  }
+
   // Só o dono pode sinalizar O.S.
   if (papel === "terceirizado") {
     const alerta = document.createElement("button");
