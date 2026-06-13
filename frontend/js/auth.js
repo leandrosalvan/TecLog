@@ -27,7 +27,7 @@ if (formLogin) {
       senha: document.getElementById("senha").value,
     });
     if (ok) {
-      window.location.href = data.admin ? "/admin" : "/dashboard";
+      window.location.href = data.admin ? "/admin" : "/ordens";
     } else {
       mostrarMsg(data.erro || "Não foi possível entrar.", "erro");
       btn.disabled = false;
@@ -48,7 +48,7 @@ if (formCadastro) {
       senha: document.getElementById("senha").value,
     });
     if (ok) {
-      window.location.href = "/dashboard";
+      window.location.href = "/ordens";
     } else {
       mostrarMsg(data.erro || "Não foi possível criar a conta.", "erro");
       btn.disabled = false;

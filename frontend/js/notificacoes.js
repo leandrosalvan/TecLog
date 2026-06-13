@@ -59,9 +59,6 @@ async function carregar() {
   });
 }
 
-document.getElementById("btn-sair").addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  window.location.href = "/";
-});
+// Logout: tratado pelo menu lateral (js/menu.js)
 
 carregar();

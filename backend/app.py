@@ -5,7 +5,7 @@ import uuid
 import unicodedata
 from datetime import date, datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, session, send_from_directory, Response
+from flask import Flask, request, jsonify, session, send_from_directory, Response, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from .database import get_db, init_db
@@ -200,7 +200,8 @@ def cadastro_page():
 
 @app.route("/dashboard")
 def dashboard_page():
-    return send_from_directory(FRONTEND_DIR, "dashboard.html")
+    # A antiga "dashboard" foi substituída: a Home agora é o Relatório de Ganhos (/ordens).
+    return redirect("/ordens")
 
 
 @app.route("/equipe")
@@ -215,7 +216,8 @@ def valores_page():
 
 @app.route("/registrar")
 def registrar_page():
-    return send_from_directory(FRONTEND_DIR, "registrar.html")
+    # Página removida: o registro de O.S. agora é feito na Home (/ordens).
+    return redirect("/ordens")
 
 
 @app.route("/ordens")

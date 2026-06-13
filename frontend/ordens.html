@@ -9,47 +9,68 @@
 </head>
 <body>
   <div class="topbar">
-    <a href="/dashboard" class="link-voltar">← Voltar</a>
     <div class="logo">TecLog<span>+</span></div>
-    <button id="btn-sair">Sair</button>
+    <button id="btn-menu" class="btn-menu" aria-label="Abrir menu">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      <span class="menu-dot" id="menu-dot"></span>
+    </button>
   </div>
 
-  <div class="container">
-    <h2 class="page-title">Relatório de Ganhos</h2>
-    <p class="page-sub" id="subtitulo">Filtre por período e veja o relatório de ganhos.</p>
+  <!-- Menu lateral (drawer) -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <nav class="drawer" id="drawer" aria-label="Menu principal">
+    <div class="drawer-head">
+      <div class="drawer-user">
+        <div class="drawer-nome" id="drawer-nome">Olá!</div>
+        <div class="drawer-email" id="drawer-email"></div>
+        <span class="badge" id="drawer-papel"></span>
+      </div>
+      <button class="drawer-x" id="drawer-fechar" aria-label="Fechar menu">✕</button>
+    </div>
+    <div class="drawer-itens" id="drawer-itens"></div>
+    <button class="drawer-sair" id="btn-sair">Sair</button>
+  </nav>
 
+  <div class="container">
     <!-- Resumo / relatório de ganhos (topo) -->
+    <p class="page-sub" id="resumo-titulo"></p>
     <div class="stats" id="resumo"></div>
 
-    <!-- Por técnico (só dono) -->
-    <div class="section" id="bloco-tecnicos" style="display:none">
+
+    <!-- Registrar O.S. (formulário) -->
+    <div class="section">
+      <h3>Registrar O.S.</h3>
+      <p class="hint">Copie do sistema do provedor e cole aqui. O valor é calculado automaticamente pelo seu perfil.</p>
+      <form id="form-os" class="form-inline">
+        <label for="os-cliente">Nome / razão social do cliente</label>
+        <input type="text" id="os-cliente" placeholder="Cole o nome do cliente" required />
+
+        <label for="os-classe">Classe de serviço</label>
+        <select id="os-classe" required></select>
+
+        <label for="os-data">Data</label>
+        <input type="date" id="os-data" />
+
+        <div id="msg-os" class="msg"></div>
+        <button type="submit" class="btn">+ Registrar O.S.</button>
+      </form>
+    </div>
+
+    <!-- Lista de O.S. + filtros -->
+    <div class="section">
       <div class="classe-head">
-        <h3>Por técnico</h3>
-        <label class="chk-todos"><input type="checkbox" id="tec-todos" checked /> Selecionar todos</label>
+        <h3 id="titulo-lista">O.S. no período</h3>
+        <button class="btn btn-sm" id="btn-filtros" style="margin-top:0">Filtros</button>
       </div>
-      <p class="hint">Marque para mostrar, desmarque para esconder as O.S. do técnico na lista abaixo.</p>
-      <ul class="list" id="lista-tecnicos"></ul>
-      <div id="tec-expandir" class="ver-mais"></div>
-    </div>
 
-    <!-- Filtro de período -->
-    <div class="section">
-      <div class="filtro-row">
-        <div class="campo"><label for="f-de">De</label><input type="date" id="f-de" /></div>
-        <div class="campo"><label for="f-ate">Até</label><input type="date" id="f-ate" /></div>
-        <button class="btn btn-sm" id="btn-filtrar" style="flex:0 0 auto">Filtrar</button>
+      <!-- Painel de filtros (expande ao clicar em Filtros) -->
+      <div class="atalhos" id="filtros-painel" style="display:none">
+        <button class="btn-act" id="filtro-data">📅 Por data</button>
+        <button class="btn-act" id="filtro-tecnico">👥 Por técnico</button>
+        <button class="btn-act" id="filtro-limpar">✖ Limpar filtro</button>
       </div>
-      <div class="atalhos">
-        <button class="btn-act" data-atalho="hoje">Hoje</button>
-        <button class="btn-act" data-atalho="7">Últimos 7 dias</button>
-        <button class="btn-act" data-atalho="30">Últimos 30 dias</button>
-      </div>
+
       <p class="periodo-aplicado" id="periodo-aplicado"></p>
-    </div>
-
-    <!-- Lista de O.S. -->
-    <div class="section">
-      <h3 id="titulo-lista">O.S. no período</h3>
       <ul class="list" id="lista-os"></ul>
       <div id="os-expandir" class="ver-mais"></div>
     </div>
@@ -58,16 +79,32 @@
     <div id="relatorio-tecnico"></div>
   </div>
 
-  <!-- Modal: todos os técnicos -->
+  <!-- Modal: filtrar por técnico -->
   <div class="modal-overlay" id="modal-tec" style="display:none">
     <div class="modal modal-lista">
       <div class="modal-head">
-        <h3>Por técnico</h3>
+        <h3>Filtrar por técnico</h3>
         <button class="modal-x" id="modal-tec-fechar">✕</button>
       </div>
+      <label class="chk-todos" style="padding:12px 18px 0"><input type="checkbox" id="tec-todos" /> Selecionar todos</label>
       <ul class="list lista-scroll" id="modal-tec-lista"></ul>
       <div class="modal-foot">
-        <button class="btn" id="modal-tec-vermenos">▲ Ver menos</button>
+        <button class="btn" id="modal-tec-aplicar">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: filtrar por data -->
+  <div class="modal-overlay" id="modal-data" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Filtrar por data</h3>
+        <button class="modal-x" id="modal-data-fechar">✕</button>
+      </div>
+      <p class="modal-sub">Selecione as duas datas — o filtro é aplicado automaticamente.</p>
+      <div class="filtro-row">
+        <div class="campo"><label for="f-de">De</label><input type="date" id="f-de" /></div>
+        <div class="campo"><label for="f-ate">Até</label><input type="date" id="f-ate" /></div>
       </div>
     </div>
   </div>
@@ -132,6 +169,7 @@
   </div>
 
   <script src="/js/aviso.js"></script>
-  <script src="/js/ordens.js"></script>
+  <script src="/js/menu.js?v=2"></script>
+  <script src="/js/ordens.js?v=2"></script>
 </body>
 </html>
