@@ -13,6 +13,23 @@ function iso(d) {
 function hojeStr() {
   return iso(new Date());
 }
+const MESES_PT = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+// Primeiro e último dia do mês atual (para o resumo/faturamento do topo)
+function primeiroDiaMes() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+}
+function ultimoDiaMes() {
+  const d = new Date();
+  return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+function nomeMesAtual() {
+  const d = new Date();
+  return MESES_PT[d.getMonth()] + " de " + d.getFullYear();
+}
 function dataBR(s) {
   const p = s.split("-");
   return p[2] + "/" + p[1];
@@ -95,39 +112,61 @@ async function gerarRelatorioPDF() {
   document.title = "TecLog+ · Relatório de Ganhos";
 }
 let ULTIMO = null;
-let SELECIONADOS = null; // Set de nomes de técnicos visíveis (null = todos)
+let SELECIONADOS = null; // Set de nomes de técnicos visíveis (null = todos / técnico)
+let ROSTER = [];         // nomes da equipe inteira (líder + técnicos), líder em 1º
+let LIDER_NOME = null;   // nome do líder logado (para a seleção padrão)
 const LIMITE_OS = 5;     // qtd mostrada no resumo (o resto abre no modal)
-const LIMITE_TEC = 5;    // técnicos na prévia (o resto abre no modal)
 
-function render(data) {
-  ULTIMO = data;
-  PAPEL = data.papel;
-  SELECIONADOS = null; // novo período sempre começa mostrando todos
-  document.getElementById("periodo-aplicado").textContent =
-    "Período: " + dataBRfull(data.de) + " a " + dataBRfull(data.ate);
-
+// Cards do topo: SEMPRE faturamento do mês atual (dia 1 ao último dia), equipe completa.
+// Independente dos filtros de período/técnico aplicados na lista de O.S. abaixo.
+function renderResumo(data) {
   const resumo = document.getElementById("resumo");
-  const blocoTec = document.getElementById("bloco-tecnicos");
+  const titulo = document.getElementById("resumo-titulo");
 
   if (data.papel === "terceirizado") {
-    document.getElementById("subtitulo").textContent =
-      "Visão de toda a equipe. Filtre por período.";
+    titulo.textContent = "Faturamento de " + nomeMesAtual() + " · toda a equipe";
     resumo.innerHTML =
       statCard("Faturamento (bruto)", brl(data.resumo.bruto)) +
       statCard("Repasse à equipe", brl(data.resumo.repasse_equipe)) +
       statCard("Faturamento (líquido)", brl(data.resumo.liquido), true) +
       statCardDuplo("Total de O.S.", data.resumo.qtd, "Sinalizadas", data.resumo.sinalizadas);
-    renderResumoTecnicos(data);
-    blocoTec.style.display = "block";
   } else {
-    document.getElementById("subtitulo").textContent = "Suas O.S. e ganhos.";
+    titulo.textContent = "Seus ganhos em " + nomeMesAtual();
     resumo.innerHTML =
       statCard("Meus ganhos", brl(data.resumo.meus_ganhos), true) +
       statCard("Minhas O.S.", data.resumo.qtd);
-    blocoTec.style.display = "none";
   }
+}
 
+async function carregarResumoMes() {
+  const de = primeiroDiaMes();
+  const ate = ultimoDiaMes();
+  const r = await fetch("/api/relatorio?de=" + de + "&ate=" + ate);
+  if (!r.ok) {
+    if (r.status === 401) window.location.href = "/";
+    return;
+  }
+  renderResumo(await r.json());
+}
+
+// Lista de O.S. (abaixo): respeita os filtros de período/técnico (padrão: hoje + líder).
+function render(data) {
+  ULTIMO = data;
+  PAPEL = data.papel;
+  atualizarResumoFiltro(data);
   renderListaOS(data);
+}
+
+// Texto-resumo do filtro aplicado (período + seleção de técnicos)
+function atualizarResumoFiltro(data) {
+  let txt = (data.de === data.ate)
+    ? dataBRfull(data.de)
+    : dataBRfull(data.de) + " a " + dataBRfull(data.ate);
+  if (data.papel === "terceirizado" && SELECIONADOS && ROSTER.length) {
+    const n = ROSTER.filter((nome) => SELECIONADOS.has(nome)).length;
+    txt += " · " + (n === ROSTER.length ? "todos os técnicos" : n + " de " + ROSTER.length + " técnicos");
+  }
+  document.getElementById("periodo-aplicado").textContent = txt;
 }
 
 // Monta um <li> de técnico (checkbox de filtro + repasse + ícone PDF)
@@ -171,44 +210,15 @@ function tecLi(t) {
   return li;
 }
 
-// "Por técnico": prévia com LIMITE_TEC; "Ver mais" abre todos no modal
-function renderResumoTecnicos(data) {
-  const ul = document.getElementById("lista-tecnicos");
-  const todos = document.getElementById("tec-todos");
-  const exp = document.getElementById("tec-expandir");
-  ul.innerHTML = "";
-  exp.innerHTML = "";
-
-  const tecs = data.resumo.por_tecnico;
-  if (tecs.length === 0) {
-    ul.innerHTML = '<li class="empty">Nenhuma O.S. no período.</li>';
-    todos.parentElement.style.display = "none";
-    return;
-  }
-  todos.parentElement.style.display = "";
-  if (!SELECIONADOS) SELECIONADOS = new Set(tecs.map((t) => t.tecnico));
-  todos.checked = tecs.every((t) => SELECIONADOS.has(t.tecnico));
-
-  tecs.slice(0, LIMITE_TEC).forEach((t) => ul.appendChild(tecLi(t)));
-
-  if (tecs.length > LIMITE_TEC) {
-    const btn = document.createElement("button");
-    btn.className = "btn-expandir";
-    btn.textContent = "▼ Ver mais (" + tecs.length + ")";
-    btn.addEventListener("click", abrirModalTec);
-    exp.appendChild(btn);
-  }
-}
-
 function onTecToggle(tec, checked) {
-  if (!SELECIONADOS) SELECIONADOS = new Set(ULTIMO.resumo.por_tecnico.map((t) => t.tecnico));
+  if (!SELECIONADOS) SELECIONADOS = new Set();
   if (checked) SELECIONADOS.add(tec); else SELECIONADOS.delete(tec);
-  renderResumoTecnicos(ULTIMO);
   if (document.getElementById("modal-tec").style.display !== "none") renderModalTec();
   renderListaOS(ULTIMO);
+  if (ULTIMO) atualizarResumoFiltro(ULTIMO);
 }
 
-// Modal com TODOS os técnicos (mesmos checkboxes/ícones da prévia)
+// Modal "Filtrar por técnico": lista a equipe inteira (roster), com a contagem/repasse do período
 function abrirModalTec() {
   renderModalTec();
   document.getElementById("modal-tec").style.display = "flex";
@@ -219,31 +229,56 @@ function fecharModalTec() {
 function renderModalTec() {
   const ul = document.getElementById("modal-tec-lista");
   ul.innerHTML = "";
-  (ULTIMO.resumo.por_tecnico || []).forEach((t) => ul.appendChild(tecLi(t)));
+  // Mapa nome -> {qtd, repasse} do período atual (técnicos sem O.S. ficam zerados)
+  const porNome = {};
+  ((ULTIMO && ULTIMO.resumo && ULTIMO.resumo.por_tecnico) || []).forEach((t) => (porNome[t.tecnico] = t));
+  const nomes = ROSTER.length ? ROSTER : Object.keys(porNome);
+  if (nomes.length === 0) {
+    ul.innerHTML = '<li class="empty">Nenhum técnico cadastrado.</li>';
+  } else {
+    nomes.forEach((nome) => ul.appendChild(tecLi(porNome[nome] || { tecnico: nome, qtd: 0, repasse: 0 })));
+  }
+  const todos = document.getElementById("tec-todos");
+  if (todos) todos.checked = nomes.length > 0 && SELECIONADOS && nomes.every((n) => SELECIONADOS.has(n));
 }
 
 // Monta um item <li> de O.S.
 function osLi(o, papel) {
   const li = document.createElement("li");
-  li.className = "list-item";
+  li.className = "list-item os-item";
 
   const info = document.createElement("div");
   info.className = "li-info";
   info.innerHTML =
     '<div class="li-main">' + o.cliente + "</div>" +
-    '<div class="li-sub">' + o.classe + "</div>";
+    '<div class="li-sub">' + o.classe + " · " + brl(o.valor_repasse) + "</div>";
+
+  // Linha inferior: nome (líder/técnico) + data, à esquerda; ações (editar/sinalizar), à direita
+  const bottom = document.createElement("div");
+  bottom.className = "li-bottom";
 
   const right = document.createElement("div");
   right.className = "li-actions";
 
   const tagTxt =
     papel === "terceirizado"
-      ? o.tecnico + " · " + dataBR(o.data_execucao) + " · " + brl(o.valor_repasse)
-      : dataBR(o.data_execucao) + " · " + brl(o.valor_repasse);
+      ? o.tecnico + " · " + dataBR(o.data_execucao)
+      : dataBR(o.data_execucao);
   const tag = document.createElement("span");
   tag.className = "tag";
   tag.textContent = tagTxt;
-  right.appendChild(tag);
+  bottom.appendChild(tag);
+
+  // Editar: o líder só edita as próprias O.S. (eh_dono); o técnico edita as suas.
+  const podeEditar = papel !== "terceirizado" || o.eh_dono;
+  if (podeEditar) {
+    const editar = document.createElement("button");
+    editar.className = "btn-act";
+    editar.textContent = "✏️";
+    editar.title = "Editar O.S.";
+    editar.addEventListener("click", () => modoEdicaoOS(li, o));
+    right.appendChild(editar);
+  }
 
   // Só o dono pode sinalizar O.S.
   if (papel === "terceirizado") {
@@ -255,9 +290,78 @@ function osLi(o, papel) {
     right.appendChild(alerta);
   }
 
+  bottom.appendChild(right);
+
   li.appendChild(info);
-  li.appendChild(right);
+  li.appendChild(bottom);
   return li;
+}
+
+// Edição inline de uma O.S. (substitui o <li> por inputs: cliente, classe, data)
+function modoEdicaoOS(li, o) {
+  li.classList.add("editing");
+  li.innerHTML = "";
+
+  const cliente = document.createElement("input");
+  cliente.className = "edit-input";
+  cliente.type = "text";
+  cliente.value = o.cliente;
+  cliente.placeholder = "Cliente";
+
+  const classeAtual = CLASSES_OS.find((c) => c.nome === o.classe);
+  const classe = document.createElement("select");
+  classe.className = "edit-input";
+  classe.innerHTML = CLASSES_OS.map(
+    (c) =>
+      '<option value="' + c.id + '"' +
+      (classeAtual && c.id === classeAtual.id ? " selected" : "") +
+      ">" + c.nome + "</option>"
+  ).join("");
+
+  const dataInp = document.createElement("input");
+  dataInp.className = "edit-input";
+  dataInp.type = "date";
+  dataInp.value = o.data_execucao;
+
+  const erro = document.createElement("div");
+  erro.className = "msg";
+
+  const salvar = document.createElement("button");
+  salvar.className = "btn-act salvar";
+  salvar.textContent = "Salvar";
+  salvar.addEventListener("click", async () => {
+    const r = await fetch("/api/os/" + o.id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cliente: cliente.value,
+        classe_id: classe.value ? Number(classe.value) : null,
+        data: dataInp.value,
+      }),
+    });
+    if (r.ok) {
+      document.getElementById("modal-os").style.display = "none";
+      carregarCustom();    // atualiza a lista filtrada
+      carregarResumoMes(); // atualiza os cards do topo (faturamento do mês)
+    } else {
+      const d = await r.json().catch(() => ({}));
+      erro.textContent = d.erro || "Erro ao salvar.";
+      erro.className = "msg show erro";
+    }
+  });
+
+  const cancelar = document.createElement("button");
+  cancelar.className = "btn-act";
+  cancelar.textContent = "Cancelar";
+  cancelar.addEventListener("click", () => carregarCustom());
+
+  li.appendChild(cliente);
+  li.appendChild(classe);
+  li.appendChild(dataInp);
+  li.appendChild(salvar);
+  li.appendChild(cancelar);
+  li.appendChild(erro);
+  cliente.focus();
 }
 
 function listaFiltrada(data) {
@@ -325,24 +429,46 @@ async function carregarCustom() {
   render(await r.json());
 }
 
-// Atalhos de período
-document.querySelectorAll("[data-atalho]").forEach((b) => {
-  b.addEventListener("click", () => {
-    const tipo = b.dataset.atalho;
-    const hoje = new Date();
-    if (tipo === "hoje") {
-      document.getElementById("f-de").value = iso(hoje);
-    } else {
-      const ini = new Date();
-      ini.setDate(ini.getDate() - (Number(tipo) - 1));
-      document.getElementById("f-de").value = iso(ini);
-    }
-    document.getElementById("f-ate").value = iso(hoje);
-    carregarCustom();
-  });
+// ---------- Filtros (painel + modais) ----------
+document.getElementById("btn-filtros").addEventListener("click", () => {
+  const p = document.getElementById("filtros-painel");
+  p.style.display = p.style.display === "none" ? "flex" : "none";
 });
 
-document.getElementById("btn-filtrar").addEventListener("click", carregarCustom);
+// Por data
+function abrirModalData() {
+  document.getElementById("modal-data").style.display = "flex";
+}
+function fecharModalData() {
+  document.getElementById("modal-data").style.display = "none";
+}
+function onDataChange() {
+  const de = document.getElementById("f-de").value;
+  const ate = document.getElementById("f-ate").value;
+  if (de && ate && de <= ate) {
+    carregarCustom();
+    fecharModalData();
+  }
+}
+document.getElementById("filtro-data").addEventListener("click", abrirModalData);
+document.getElementById("modal-data-fechar").addEventListener("click", fecharModalData);
+document.getElementById("modal-data").addEventListener("click", (e) => {
+  if (e.target.id === "modal-data") fecharModalData();
+});
+document.getElementById("f-de").addEventListener("change", onDataChange);
+document.getElementById("f-ate").addEventListener("change", onDataChange);
+
+// Por técnico
+document.getElementById("filtro-tecnico").addEventListener("click", abrirModalTec);
+
+// Limpar filtro: volta ao padrão (hoje + todos os técnicos + líder)
+document.getElementById("filtro-limpar").addEventListener("click", () => {
+  document.getElementById("f-de").value = hojeStr();
+  document.getElementById("f-ate").value = hojeStr();
+  if (PAPEL === "terceirizado") SELECIONADOS = new Set(ROSTER);
+  document.getElementById("filtros-painel").style.display = "none";
+  carregarCustom();
+});
 
 // Mini-modal de PDF por técnico
 document.getElementById("pdf-gerar").addEventListener("click", gerarRelatorioPDF);
@@ -354,16 +480,15 @@ document.getElementById("modal-pdf").addEventListener("click", (e) => {
 
 // Selecionar/desmarcar todos os técnicos
 document.getElementById("tec-todos").addEventListener("change", function () {
-  const tecs = (ULTIMO && ULTIMO.resumo.por_tecnico) || [];
-  SELECIONADOS = this.checked ? new Set(tecs.map((t) => t.tecnico)) : new Set();
-  renderResumoTecnicos(ULTIMO);
-  if (document.getElementById("modal-tec").style.display !== "none") renderModalTec();
+  SELECIONADOS = this.checked ? new Set(ROSTER) : new Set();
+  renderModalTec();
   renderListaOS(ULTIMO);
+  if (ULTIMO) atualizarResumoFiltro(ULTIMO);
 });
 
 // Modal "Por técnico"
 document.getElementById("modal-tec-fechar").addEventListener("click", fecharModalTec);
-document.getElementById("modal-tec-vermenos").addEventListener("click", fecharModalTec);
+document.getElementById("modal-tec-aplicar").addEventListener("click", fecharModalTec);
 document.getElementById("modal-tec").addEventListener("click", (e) => {
   if (e.target.id === "modal-tec") fecharModalTec();
 });
@@ -501,17 +626,130 @@ document.getElementById("sinal-remover").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("btn-sair").addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  window.location.href = "/";
+// Logout e menu lateral: ver js/menu.js
+
+// ---------- Registrar O.S. (formulário embutido na Home) ----------
+let CLASSES_OS = [];
+
+function msgOS(texto, tipo) {
+  const el = document.getElementById("msg-os");
+  el.textContent = texto;
+  el.className = "msg show " + tipo;
+}
+function msgOSHTML(html, tipo) {
+  const el = document.getElementById("msg-os");
+  el.innerHTML = html;
+  el.className = "msg show " + tipo;
+}
+function limparMsgOS() {
+  const el = document.getElementById("msg-os");
+  el.textContent = "";
+  el.className = "msg";
+}
+function valorDaClasse(id) {
+  const c = CLASSES_OS.find((x) => x.id === Number(id));
+  return c ? Number(c.valor) || 0 : 0;
+}
+function avisoZero() {
+  return PAPEL === "terceirizado"
+    ? '⚠️ Esta classe está com valor R$ 0,00 para o seu perfil. Defina os valores na aba <a href="/valores">💰 Valores</a> antes de registrar.'
+    : "⚠️ Esta classe ainda está sem valor definido para o seu perfil. Peça ao líder da equipe para configurar os valores.";
+}
+// Avisa e bloqueia o botão quando a classe selecionada está com valor zerado
+function avaliarClasse() {
+  const sel = document.getElementById("os-classe");
+  const btn = document.querySelector("#form-os button[type=submit]");
+  if (sel.value && valorDaClasse(sel.value) <= 0) {
+    msgOSHTML(avisoZero(), "erro");
+    if (btn) btn.disabled = true;
+  } else {
+    limparMsgOS();
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function carregarFormOS() {
+  const r = await fetch("/api/os/form-data");
+  if (!r.ok) {
+    if (r.status === 401) window.location.href = "/";
+    return;
+  }
+  const data = await r.json();
+  CLASSES_OS = data.classes;
+  if (data.papel) PAPEL = data.papel;
+  const sel = document.getElementById("os-classe");
+  if (CLASSES_OS.length === 0) {
+    sel.innerHTML = '<option value="">— crie uma classe na aba Valores —</option>';
+  } else {
+    sel.innerHTML =
+      '<option value="">Selecione…</option>' +
+      CLASSES_OS.map((c) =>
+        '<option value="' + c.id + '">' + c.nome +
+        ((Number(c.valor) || 0) <= 0 ? " — sem valor" : "") + "</option>"
+      ).join("");
+  }
+  document.getElementById("os-data").value = hojeStr();
+}
+
+document.getElementById("os-classe").addEventListener("change", avaliarClasse);
+
+document.getElementById("form-os").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const selVal = document.getElementById("os-classe").value;
+  if (selVal && valorDaClasse(selVal) <= 0) {
+    msgOSHTML(avisoZero(), "erro");
+    return;
+  }
+  const r = await fetch("/api/os", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cliente: document.getElementById("os-cliente").value,
+      classe_id: selVal ? Number(selVal) : null,
+      data: document.getElementById("os-data").value,
+    }),
+  });
+  if (r.ok) {
+    document.getElementById("os-cliente").value = "";
+    document.getElementById("os-classe").value = "";
+    document.getElementById("os-data").value = hojeStr();
+    msgOS("O.S. registrada! ✅", "ok");
+    carregarCustom();   // atualiza lista filtrada (período/técnico selecionados)
+    carregarResumoMes(); // atualiza cards do topo (faturamento do mês, equipe completa)
+    document.getElementById("os-cliente").focus();
+  } else {
+    const d = await r.json().catch(() => ({}));
+    msgOS(d.erro || "Erro ao registrar.", "erro");
+  }
 });
 
-// Início — padrão: últimos 30 dias
-(function () {
-  const hoje = new Date();
-  const ini = new Date();
-  ini.setDate(ini.getDate() - 29);
-  document.getElementById("f-de").value = iso(ini);
-  document.getElementById("f-ate").value = iso(hoje);
+// Descobre papel + nome do líder e carrega o roster da equipe.
+// Define a seleção padrão de técnicos (só o líder) e esconde "Por técnico" para técnicos.
+async function initFiltros() {
+  let me = null;
+  try { me = await (await fetch("/api/me")).json(); } catch (e) {}
+  if (!me || me.erro) { window.location.href = "/"; return; }
+  PAPEL = me.papel;
+  if (me.papel !== "terceirizado") {
+    document.getElementById("filtro-tecnico").style.display = "none";
+    return; // técnico: vê só as próprias O.S., sem filtro por técnico
+  }
+  LIDER_NOME = me.nome;
+  let tecs = [];
+  try {
+    const eq = await (await fetch("/api/equipe")).json();
+    tecs = (eq.tecnicos || []).map((t) => t.nome).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  } catch (e) {}
+  ROSTER = [LIDER_NOME, ...tecs];
+  SELECIONADOS = new Set(ROSTER); // padrão: todos os técnicos + líder
+}
+
+// Início — padrão: hoje + só o líder selecionado (cards do topo: mês atual, equipe completa)
+(async function () {
+  document.getElementById("f-de").value = hojeStr();
+  document.getElementById("f-ate").value = hojeStr();
+  await initFiltros();
+  carregarResumoMes();
   carregarCustom();
+  carregarFormOS();
 })();
