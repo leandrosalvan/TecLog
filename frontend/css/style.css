@@ -322,6 +322,29 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* Botão "Home" (ícone) — substitui o "← Voltar" no topo das páginas internas */
+.link-home {
+  background: rgba(255, 255, 255, .15);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 0;
+}
+.link-home svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .page-title { font-size: 22px; margin: 6px 0 4px; }
 .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
 
@@ -550,7 +573,7 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 .btn-act.excluir:hover { background: #fee2e2; }
 .btn-act.salvar { color: #fff; background: var(--primary); border-color: var(--primary); }
 .btn-act.salvar:hover { background: var(--primary-dark); }
-.list-item.editing { gap: 8px; flex-wrap: wrap; }
+.list-item.editing { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
 .edit-input {
   flex: 1;
   min-width: 140px;
