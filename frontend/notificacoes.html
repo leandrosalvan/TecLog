@@ -9,10 +9,32 @@
 </head>
 <body>
   <div class="topbar">
-    <a href="/dashboard" class="link-voltar">← Voltar</a>
     <div class="logo">TecLog<span>+</span></div>
-    <button id="btn-sair">Sair</button>
+    <div class="topbar-acts">
+      <a href="/home" class="link-home" aria-label="Início" title="Início">
+        <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+      </a>
+      <button id="btn-menu" class="btn-menu" aria-label="Abrir menu">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+        <span class="menu-dot" id="menu-dot"></span>
+      </button>
+    </div>
   </div>
+
+  <!-- Menu lateral (drawer) -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <nav class="drawer" id="drawer" aria-label="Menu principal">
+    <div class="drawer-head">
+      <div class="drawer-user">
+        <div class="drawer-nome" id="drawer-nome">Olá!</div>
+        <div class="drawer-email" id="drawer-email"></div>
+        <span class="badge" id="drawer-papel"></span>
+      </div>
+      <button class="drawer-x" id="drawer-fechar" aria-label="Fechar menu">✕</button>
+    </div>
+    <div class="drawer-itens" id="drawer-itens"></div>
+    <button class="drawer-sair" id="btn-sair">Sair</button>
+  </nav>
 
   <div class="container">
     <h2 class="page-title">Notificações</h2>
@@ -22,6 +44,7 @@
   </div>
 
   <script src="/js/aviso.js"></script>
+  <script src="/js/menu.js"></script>
   <script src="/js/notificacoes.js"></script>
 </body>
 </html>

@@ -1,11 +1,10 @@
 """TecLog+ — servidor Flask (API + frontend estático)."""
 import os
 import re
-import uuid
 import unicodedata
 from datetime import date, datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, session, send_from_directory, Response
+from flask import Flask, request, jsonify, session, send_from_directory, Response, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from .database import get_db, init_db
@@ -195,12 +194,20 @@ def index():
 
 @app.route("/cadastro")
 def cadastro_page():
-    return send_from_directory(FRONTEND_DIR, "cadastro.html")
+    # Cadastro público desativado: redireciona para a página de planos.
+    return redirect("/planos")
+
+
+@app.route("/home")
+def home_page():
+    # Home do app: Relatório de Ganhos + registro de O.S.
+    return send_from_directory(FRONTEND_DIR, "home.html")
 
 
 @app.route("/dashboard")
 def dashboard_page():
-    return send_from_directory(FRONTEND_DIR, "dashboard.html")
+    # Dashboard antiga virou a Home (/home).
+    return redirect("/home")
 
 
 @app.route("/equipe")
@@ -215,12 +222,14 @@ def valores_page():
 
 @app.route("/registrar")
 def registrar_page():
-    return send_from_directory(FRONTEND_DIR, "registrar.html")
+    # Registro de O.S. unificado na Home (/home).
+    return redirect("/home")
 
 
 @app.route("/ordens")
 def ordens_page():
-    return send_from_directory(FRONTEND_DIR, "ordens.html")
+    # Rota antiga mantida para compatibilidade.
+    return redirect("/home")
 
 
 @app.route("/notificacoes")

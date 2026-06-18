@@ -1,4 +1,4 @@
-// TecLog+ — Backoffice: dashboard (navegação por cards)
+// TecLog+ — Backoffice: menu de navegação por cards
 
 document.querySelectorAll(".menu-card").forEach((card) => {
   card.addEventListener("click", () => (window.location.href = card.dataset.href));
