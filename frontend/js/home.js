@@ -17,18 +17,15 @@ const MESES_PT = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
-// Primeiro e último dia do mês atual (para o resumo/faturamento do topo)
-function primeiroDiaMes() {
+// Limites de um mês (offset 0 = atual, -1 = passado)
+function limitesMes(offset) {
   const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
-}
-function ultimoDiaMes() {
-  const d = new Date();
-  return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-}
-function nomeMesAtual() {
-  const d = new Date();
-  return MESES_PT[d.getMonth()] + " de " + d.getFullYear();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + (offset || 0));
+  const de = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+  const ate = iso(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  const nome = MESES_PT[d.getMonth()] + " de " + d.getFullYear();
+  return { de, ate, nome };
 }
 function dataBR(s) {
   const p = s.split("-");
@@ -117,39 +114,72 @@ let ROSTER = [];         // nomes da equipe inteira (líder + técnicos), líder
 let LIDER_NOME = null;   // nome do líder logado (para a seleção padrão)
 const LIMITE_OS = 5;     // qtd mostrada no resumo (o resto abre no modal)
 
-// Cards do topo: SEMPRE faturamento do mês atual (dia 1 ao último dia), equipe completa.
-// Independente dos filtros de período/técnico aplicados na lista de O.S. abaixo.
-function renderResumo(data) {
-  const resumo = document.getElementById("resumo");
-  const titulo = document.getElementById("resumo-titulo");
-
+// Minicards informativos — mês atual e mês passado (independente dos filtros da lista).
+function htmlStatsResumo(data) {
   if (data.papel === "terceirizado") {
-    titulo.textContent = "Faturamento de " + nomeMesAtual() + " · toda a equipe";
-    resumo.innerHTML =
+    return (
       statCard("Faturamento (bruto)", brl(data.resumo.bruto)) +
       statCard("Repasse à equipe", brl(data.resumo.repasse_equipe)) +
       statCard("Faturamento (líquido)", brl(data.resumo.liquido), true) +
-      statCardDuplo("Total de O.S.", data.resumo.qtd, "Sinalizadas", data.resumo.sinalizadas);
-  } else {
-    titulo.textContent = "Seus ganhos em " + nomeMesAtual();
-    resumo.innerHTML =
-      statCard("Meus ganhos", brl(data.resumo.meus_ganhos), true) +
-      statCard("Minhas O.S.", data.resumo.qtd);
+      statCardDuplo("Total de O.S.", data.resumo.qtd, "Sinalizadas", data.resumo.sinalizadas)
+    );
   }
+  return (
+    statCard("Meus ganhos", brl(data.resumo.meus_ganhos), true) +
+    statCard("Minhas O.S.", data.resumo.qtd)
+  );
 }
 
-async function carregarResumoMes() {
-  const de = primeiroDiaMes();
-  const ate = ultimoDiaMes();
+function renderResumoEm(data, { tituloId, subId, statsId, titulo }, nomeMes) {
+  document.getElementById(tituloId).textContent = titulo;
+  document.getElementById(subId).textContent =
+    data.papel === "terceirizado" ? nomeMes + " · toda a equipe" : nomeMes;
+  document.getElementById(statsId).innerHTML = htmlStatsResumo(data);
+}
+
+async function fetchRelatorio(de, ate) {
   const r = await fetch("/api/relatorio?de=" + de + "&ate=" + ate);
   if (!r.ok) {
     if (r.status === 401) window.location.href = "/";
-    return;
+    return null;
   }
-  renderResumo(await r.json());
+  return r.json();
 }
 
-// Lista de O.S. (abaixo): respeita os filtros de período/técnico (padrão: hoje + líder).
+async function carregarResumoMes() {
+  const secoes = [
+    {
+      mes: limitesMes(0),
+      tituloId: "resumo-titulo",
+      subId: "resumo-sub",
+      statsId: "resumo",
+      tituloLider: "Faturamento atual",
+      tituloTec: "Ganhos atuais",
+    },
+    {
+      mes: limitesMes(-1),
+      tituloId: "resumo-mes-passado-titulo",
+      subId: "resumo-mes-passado-sub",
+      statsId: "resumo-mes-passado",
+      tituloLider: "Mês passado",
+      tituloTec: "Ganhos do mês passado",
+    },
+  ];
+  const dados = await Promise.all(secoes.map((s) => fetchRelatorio(s.mes.de, s.mes.ate)));
+  dados.forEach((data, i) => {
+    if (!data) return;
+    const s = secoes[i];
+    const ehLider = data.papel === "terceirizado";
+    renderResumoEm(data, {
+      tituloId: s.tituloId,
+      subId: s.subId,
+      statsId: s.statsId,
+      titulo: ehLider ? s.tituloLider : s.tituloTec,
+    }, s.mes.nome);
+  });
+}
+
+// Lista de O.S.: filtros de período/técnico (padrão: hoje + só o líder).
 function render(data) {
   ULTIMO = data;
   PAPEL = data.papel;
@@ -348,7 +378,7 @@ function modoEdicaoOS(li, o) {
     if (r.ok) {
       document.getElementById("modal-os").style.display = "none";
       carregarCustom();    // atualiza a lista filtrada
-      carregarResumoMes(); // atualiza os cards do topo (faturamento do mês)
+      carregarResumoMes();
     } else {
       const d = await r.json().catch(() => ({}));
       erro.textContent = d.erro || "Erro ao salvar.";
@@ -387,7 +417,7 @@ function renderListaOS(data) {
 
   const lista = listaFiltrada(data);
   document.getElementById("titulo-lista").textContent =
-    "O.S. no período (" + lista.length + ")";
+    "O.S. de Hoje (" + lista.length + ")";
 
   if (lista.length === 0) {
     ulOs.innerHTML = '<li class="empty">Nenhuma O.S. para os técnicos marcados.</li>';
@@ -412,7 +442,7 @@ function abrirModalOS(data) {
   ul.innerHTML = "";
   lista.forEach((o) => ul.appendChild(osLi(o, data.papel)));
   document.getElementById("modal-os-titulo").textContent =
-    "O.S. no período (" + lista.length + ")";
+    "O.S. de Hoje (" + lista.length + ")";
   document.getElementById("modal-os").style.display = "flex";
 }
 
@@ -427,22 +457,15 @@ function recarregar() {
 async function carregarCustom() {
   const de = document.getElementById("f-de").value;
   const ate = document.getElementById("f-ate").value;
-  const r = await fetch("/api/relatorio?de=" + de + "&ate=" + ate);
-  if (!r.ok) {
-    if (r.status === 401) window.location.href = "/";
-    return;
-  }
-  render(await r.json());
+  const data = await fetchRelatorio(de, ate);
+  if (data) render(data);
 }
 
-// ---------- Filtros (painel + modais) ----------
-document.getElementById("btn-filtros").addEventListener("click", () => {
-  const p = document.getElementById("filtros-painel");
-  p.style.display = p.style.display === "none" ? "flex" : "none";
-});
-
-// Por data
+// ---------- Filtros ("ver outras datas" → De/Até; líder também tem Por técnico) ----------
 function abrirModalData() {
+  document.getElementById("f-de").value = hojeStr();
+  document.getElementById("f-ate").value = hojeStr();
+  carregarCustom();
   document.getElementById("modal-data").style.display = "flex";
 }
 function fecharModalData() {
@@ -456,7 +479,7 @@ function onDataChange() {
     fecharModalData();
   }
 }
-document.getElementById("filtro-data").addEventListener("click", abrirModalData);
+document.getElementById("btn-outras-datas").addEventListener("click", abrirModalData);
 document.getElementById("modal-data-fechar").addEventListener("click", fecharModalData);
 document.getElementById("modal-data").addEventListener("click", (e) => {
   if (e.target.id === "modal-data") fecharModalData();
@@ -464,16 +487,13 @@ document.getElementById("modal-data").addEventListener("click", (e) => {
 document.getElementById("f-de").addEventListener("change", onDataChange);
 document.getElementById("f-ate").addEventListener("change", onDataChange);
 
-// Por técnico
-document.getElementById("filtro-tecnico").addEventListener("click", abrirModalTec);
-
-// Limpar filtro: volta ao padrão (hoje + todos os técnicos + líder)
-document.getElementById("filtro-limpar").addEventListener("click", () => {
-  document.getElementById("f-de").value = hojeStr();
-  document.getElementById("f-ate").value = hojeStr();
+// Por técnico (só líder) — abre com líder + toda a equipe selecionados
+document.getElementById("filtro-tecnico").addEventListener("click", () => {
+  fecharModalData();
   if (PAPEL === "terceirizado") SELECIONADOS = new Set(ROSTER);
-  document.getElementById("filtros-painel").style.display = "none";
-  carregarCustom();
+  renderListaOS(ULTIMO);
+  if (ULTIMO) atualizarResumoFiltro(ULTIMO);
+  abrirModalTec();
 });
 
 // Mini-modal de PDF por técnico
@@ -720,8 +740,8 @@ document.getElementById("form-os").addEventListener("submit", async (e) => {
     document.getElementById("os-classe").value = "";
     document.getElementById("os-data").value = hojeStr();
     msgOS("O.S. registrada! ✅", "ok");
-    carregarCustom();   // atualiza lista filtrada (período/técnico selecionados)
-    carregarResumoMes(); // atualiza cards do topo (faturamento do mês, equipe completa)
+    carregarCustom();
+    carregarResumoMes();
     document.getElementById("os-cliente").focus();
   } else {
     const d = await r.json().catch(() => ({}));
@@ -729,17 +749,14 @@ document.getElementById("form-os").addEventListener("submit", async (e) => {
   }
 });
 
-// Descobre papel + nome do líder e carrega o roster da equipe.
-// Define a seleção padrão de técnicos (só o líder) e esconde "Por técnico" para técnicos.
+// Papel + roster; líder começa vendo só as próprias O.S.; técnico só filtra por data.
 async function initFiltros() {
   let me = null;
   try { me = await (await fetch("/api/me")).json(); } catch (e) {}
   if (!me || me.erro) { window.location.href = "/"; return; }
   PAPEL = me.papel;
-  if (me.papel !== "terceirizado") {
-    document.getElementById("filtro-tecnico").style.display = "none";
-    return; // técnico: vê só as próprias O.S., sem filtro por técnico
-  }
+  if (me.papel !== "terceirizado") return;
+  document.getElementById("filtro-tecnico-wrap").style.display = "flex";
   LIDER_NOME = me.nome;
   let tecs = [];
   try {
@@ -747,10 +764,9 @@ async function initFiltros() {
     tecs = (eq.tecnicos || []).map((t) => t.nome).sort((a, b) => a.localeCompare(b, "pt-BR"));
   } catch (e) {}
   ROSTER = [LIDER_NOME, ...tecs];
-  SELECIONADOS = new Set(ROSTER); // padrão: todos os técnicos + líder
+  SELECIONADOS = new Set([LIDER_NOME]);
 }
 
-// Início — padrão: hoje + só o líder selecionado (cards do topo: mês atual, equipe completa)
 (async function () {
   document.getElementById("f-de").value = hojeStr();
   document.getElementById("f-ate").value = hojeStr();

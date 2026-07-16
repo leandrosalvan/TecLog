@@ -32,11 +32,6 @@
   </nav>
 
   <div class="container">
-    <!-- Resumo / relatório de ganhos (topo) -->
-    <p class="page-sub" id="resumo-titulo"></p>
-    <div class="stats" id="resumo"></div>
-
-
     <!-- Registrar O.S. (formulário) -->
     <div class="section">
       <h3>Registrar O.S.</h3>
@@ -59,20 +54,27 @@
     <!-- Lista de O.S. + filtros -->
     <div class="section">
       <div class="classe-head">
-        <h3 id="titulo-lista">O.S. no período</h3>
-        <button class="btn btn-sm" id="btn-filtros" style="margin-top:0">Filtros</button>
-      </div>
-
-      <!-- Painel de filtros (expande ao clicar em Filtros) -->
-      <div class="atalhos" id="filtros-painel" style="display:none">
-        <button class="btn-act" id="filtro-data">📅 Por data</button>
-        <button class="btn-act" id="filtro-tecnico">👥 Por técnico</button>
-        <button class="btn-act" id="filtro-limpar">✖ Limpar filtro</button>
+        <h3 id="titulo-lista">O.S. de Hoje</h3>
+        <button class="btn btn-sm" id="btn-outras-datas" style="margin-top:0">ver outras datas</button>
       </div>
 
       <p class="periodo-aplicado" id="periodo-aplicado"></p>
       <ul class="list" id="lista-os"></ul>
       <div id="os-expandir" class="ver-mais"></div>
+    </div>
+
+    <!-- Faturamento do mês atual (informativo) -->
+    <div class="section">
+      <h3 id="resumo-titulo">Faturamento atual</h3>
+      <p class="hint" id="resumo-sub"></p>
+      <div class="stats" id="resumo"></div>
+    </div>
+
+    <!-- Faturamento do mês passado (informativo) -->
+    <div class="section">
+      <h3 id="resumo-mes-passado-titulo">Mês passado</h3>
+      <p class="hint" id="resumo-mes-passado-sub"></p>
+      <div class="stats" id="resumo-mes-passado"></div>
     </div>
 
     <!-- Relatório do técnico (visível só na impressão/PDF) -->
@@ -106,6 +108,9 @@
         <div class="campo"><label for="f-de">De</label><input type="date" id="f-de" /></div>
         <div class="campo"><label for="f-ate">Até</label><input type="date" id="f-ate" /></div>
       </div>
+      <div class="modal-acts" id="filtro-tecnico-wrap" style="display:none;margin-top:14px">
+        <button class="btn-act" id="filtro-tecnico">Por técnico</button>
+      </div>
     </div>
   </div>
 
@@ -132,7 +137,7 @@
   <div class="modal-overlay" id="modal-os" style="display:none">
     <div class="modal modal-lista">
       <div class="modal-head">
-        <h3 id="modal-os-titulo">O.S. no período</h3>
+        <h3 id="modal-os-titulo">O.S. de Hoje</h3>
         <button class="modal-x" id="modal-os-fechar">✕</button>
       </div>
       <ul class="list lista-scroll" id="modal-os-lista"></ul>
@@ -170,6 +175,6 @@
 
   <script src="/js/aviso.js"></script>
   <script src="/js/menu.js?v=2"></script>
-  <script src="/js/home.js?v=2"></script>
+  <script src="/js/home.js?v=6"></script>
 </body>
 </html>
