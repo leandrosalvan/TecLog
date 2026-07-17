@@ -595,6 +595,18 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
   border-bottom: 1px solid var(--line);
 }
 .classe-head h3 { font-size: 16px; }
+.lista-acoes {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.lista-acoes .btn {
+  flex: 1;
+  width: auto;
+  margin-top: 0;
+  font-size: 14px;
+  padding: 11px 10px;
+}
 .valor-row {
   display: flex;
   align-items: center;
