@@ -51,14 +51,21 @@ function statCardDuplo(lbl1, val1, lbl2, val2) {
   );
 }
 
-// ---- PDF por técnico: abre o mini-modal de período e gera ----
+// ---- PDF por técnico: abre o mini-modal (técnico + período) e gera ----
 let TEC_PDF = null;
 
-function abrirModalPdf(tec) {
-  TEC_PDF = tec;
-  document.getElementById("modal-pdf-titulo").textContent = "Relatório · " + tec;
-  document.getElementById("pdf-de").value = document.getElementById("f-de").value;
-  document.getElementById("pdf-ate").value = document.getElementById("f-ate").value;
+function abrirModalPdf() {
+  const sel = document.getElementById("pdf-tec");
+  sel.innerHTML = "";
+  ROSTER.forEach((nome) => {
+    const opt = document.createElement("option");
+    opt.value = nome;
+    opt.textContent = nome;
+    sel.appendChild(opt);
+  });
+  if (LIDER_NOME) sel.value = LIDER_NOME;
+  document.getElementById("pdf-de").value = document.getElementById("f-de").value || hojeStr();
+  document.getElementById("pdf-ate").value = document.getElementById("f-ate").value || hojeStr();
   document.getElementById("modal-pdf").style.display = "flex";
 }
 
@@ -68,6 +75,7 @@ function fecharModalPdf() {
 
 // Busca o período escolhido, monta o relatório do técnico e abre a impressão (salvar PDF)
 async function gerarRelatorioPDF() {
+  TEC_PDF = document.getElementById("pdf-tec").value;
   if (!TEC_PDF) return;
   const de = document.getElementById("pdf-de").value;
   const ate = document.getElementById("pdf-ate").value;
@@ -199,7 +207,7 @@ function atualizarResumoFiltro(data) {
   document.getElementById("periodo-aplicado").textContent = txt;
 }
 
-// Monta um <li> de técnico (checkbox de filtro + repasse + ícone PDF)
+// Monta um <li> de técnico (checkbox de filtro + repasse)
 function tecLi(t) {
   const li = document.createElement("li");
   li.className = "list-item";
@@ -224,16 +232,9 @@ function tecLi(t) {
   tag.className = "tag";
   tag.textContent = brl(t.repasse);
 
-  const bPdf = document.createElement("button");
-  bPdf.className = "btn-act";
-  bPdf.textContent = "📄";
-  bPdf.title = "Gerar PDF deste técnico";
-  bPdf.addEventListener("click", () => abrirModalPdf(t.tecnico));
-
   const right = document.createElement("div");
   right.className = "li-actions";
   right.appendChild(tag);
-  right.appendChild(bPdf);
 
   li.appendChild(lab);
   li.appendChild(right);
@@ -480,6 +481,7 @@ function onDataChange() {
   }
 }
 document.getElementById("btn-outras-datas").addEventListener("click", abrirModalData);
+document.getElementById("btn-relatorio-pdf").addEventListener("click", abrirModalPdf);
 document.getElementById("modal-data-fechar").addEventListener("click", fecharModalData);
 document.getElementById("modal-data").addEventListener("click", (e) => {
   if (e.target.id === "modal-data") fecharModalData();
@@ -757,6 +759,7 @@ async function initFiltros() {
   PAPEL = me.papel;
   if (me.papel !== "terceirizado") return;
   document.getElementById("filtro-tecnico-wrap").style.display = "flex";
+  document.getElementById("btn-relatorio-pdf").style.display = "";
   LIDER_NOME = me.nome;
   let tecs = [];
   try {
