@@ -7,6 +7,8 @@ venv/
 # Banco e uploads locais (não vão pro repositório)
 teclog.db
 uploads/
+.env
+_BD_local/
 
 # Logs e temporários
 server*.log
