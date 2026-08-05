@@ -297,6 +297,21 @@ def arquivos(filename):
 # ----------------------------------------------------------------------------
 # Autenticação
 # ----------------------------------------------------------------------------
+@app.get("/api/health")
+def api_health():
+    """Confirma que a aplicação e o banco aceitam uma consulta simples."""
+    conn = None
+    try:
+        conn = get_db()
+        conn.execute("SELECT 1").fetchone()
+        return jsonify({"ok": True, "database": "ok"})
+    except Exception:
+        return jsonify({"ok": False, "database": "unavailable"}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def _slug(s):
     """minúsculo, sem acento, só letras/números."""
     s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode("ascii")
