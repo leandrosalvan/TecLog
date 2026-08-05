@@ -4,6 +4,7 @@ import re
 import unicodedata
 from datetime import date, datetime, timedelta
 from functools import wraps
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from flask import Flask, request, jsonify, session, send_from_directory, Response, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -16,19 +17,25 @@ UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 # Classes pré-definidas no cadastro + valor inicial do perfil tec1 (terceirizado)
 CLASSES_PADRAO = [("INSTALAÇÃO", 0), ("SUPORTE", 0), ("DEVICES", 0)]  # nascem zeradas: o Líder define os valores reais
 
+try:
+    APP_TZ = ZoneInfo(os.environ.get("APP_TIMEZONE", "America/Sao_Paulo"))
+except ZoneInfoNotFoundError:
+    # Windows local pode não ter a base IANA; nesse caso usa o fuso do sistema.
+    APP_TZ = None
 
-# Helpers de data/hora agnósticos ao banco (SQLite/Postgres). Usa o fuso do servidor
-# (no Render, definir TZ=America/Sao_Paulo).
+
+# Helpers de data/hora agnósticos ao banco (SQLite/Postgres), sempre no fuso
+# configurado da aplicação, independentemente do runtime.
 def _hoje():
-    return datetime.now().strftime("%Y-%m-%d")
+    return datetime.now(APP_TZ).strftime("%Y-%m-%d")
 
 
 def _agora():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(APP_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _mais_24h():
-    return (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    return (datetime.now(APP_TZ) + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _garantir_admin():

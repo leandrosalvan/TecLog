@@ -20,3 +20,6 @@ _marketing/cardapio-precos.png
 
 # Ferramentas locais
 cloudflared*
+
+.vercel
+.env.local
