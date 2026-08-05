@@ -58,8 +58,13 @@ def _garantir_admin():
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get("SECRET_KEY", "teclog-dev-secret-trocar-em-producao")
 
-init_db()
-_garantir_admin()
+# O banco de produção já é versionado e persistente no Neon. Em runtimes
+# serverless, executar DDL em todo cold start aumenta latência e pode causar
+# concorrência entre instâncias. Render e desenvolvimento local mantêm o fluxo
+# atual; migrações na Vercel devem ser executadas de forma explícita.
+if not os.environ.get("VERCEL"):
+    init_db()
+    _garantir_admin()
 
 
 # ----------------------------------------------------------------------------

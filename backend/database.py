@@ -96,7 +96,10 @@ def get_db():
     if IS_PG:
         url = DATABASE_URL
         if "sslmode=" not in url:
-            url += ("&" if "?" in url else "?") + "sslmode=require"
+            # Neon/produção precisa de SSL; Postgres local Windows normalmente não.
+            local = any(h in url for h in ("127.0.0.1", "localhost", "@::1"))
+            mode = "disable" if local else "require"
+            url += ("&" if "?" in url else "?") + f"sslmode={mode}"
         raw = psycopg2.connect(url)
         return _PgConn(raw)
     conn = sqlite3.connect(DB_PATH)

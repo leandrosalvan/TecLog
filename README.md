@@ -6,14 +6,18 @@ Sistema web (mobile-first) para **terceirizados** controlarem, junto com seus **
 - **Backend:** Flask (Python 3.12 em produção; local pode rodar em 3.12+)
 - **Frontend:** HTML/CSS/JS puro, mobile-first (iOS/Android)
 - **Banco:** SQLite local (`teclog.db`, criado automaticamente) ou PostgreSQL em produção (`DATABASE_URL`)
-- **Deploy:** Render (configurado em `render.yaml` / `Procfile`)
+- **Deploy:** Vercel (`app.py`) ou Render (`render.yaml` / `Procfile`)
 
 ## Como rodar (local)
 ```bash
 pip install -r requirements.txt
+cp .env.example .env   # opcional: aponta para Postgres local (database teclog)
 python run.py
 ```
 Abra **http://127.0.0.1:5001** (não abra o `index.html` direto).
+
+- Sem `DATABASE_URL` → SQLite (`teclog.db`)
+- Com `DATABASE_URL` (ver `.env.example`) → Postgres local restaurado do cofre (`_BD_local`)
 
 ## Estrutura
 ```
