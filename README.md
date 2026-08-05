@@ -6,7 +6,7 @@ Sistema web (mobile-first) para **terceirizados** controlarem, junto com seus **
 - **Backend:** Flask (Python 3.12 em produção; local pode rodar em 3.12+)
 - **Frontend:** HTML/CSS/JS puro, mobile-first (iOS/Android)
 - **Banco:** SQLite local (`teclog.db`, criado automaticamente) ou PostgreSQL em produção (`DATABASE_URL`)
-- **Deploy:** Render (configurado em `render.yaml` / `Procfile`)
+- **Deploy:** Vercel (`app.py`) ou Render (`render.yaml` / `Procfile`)
 
 ## Como rodar (local)
 ```bash

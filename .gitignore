@@ -8,6 +8,7 @@ venv/
 teclog.db
 uploads/
 .env
+.secrets/
 _BD_local/
 
 # Logs e temporários
